@@ -89,6 +89,7 @@ bool Engine::startup(std::string& message) {
         message = failure("This GPU does not support CUDA unified memory.");
         return false;
     }
+    device_ = chosen;
     status = cudaSetDevice(chosen);
     if (status != cudaSuccess) {
         message = failure(cudaGetErrorString(status));
@@ -111,6 +112,10 @@ bool Engine::startup(std::string& message) {
     runtimeVersion_ = version;
     ready_ = true;
     return true;
+}
+
+void Engine::bindThread() const {
+    cudaSetDevice(device_);
 }
 
 std::string Engine::cudaVersion() const {

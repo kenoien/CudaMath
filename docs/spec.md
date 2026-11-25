@@ -340,6 +340,8 @@ Small documents are JSON. Array values larger than 1 MiB are stored in a binary 
 
 `CudaMathCli` runs the unified-memory check before it reads any input. On failure it prints the error to standard error and exits with code 1. It does not prompt. On success it reads a line, sends it to the interpreter, and prints the result when the line does not end with `;`. Errors print the message and the REPL continues. `exit` or `quit` leaves the process. `CudaMathCli --runtests <file>` runs the same startup check, then runs that test file and exits with code 0 when every check passed and code 1 when any check failed. A failed startup check exits with code 1 before any test runs.
 
+A long submission runs on the console thread. The terminal process owns the window, so the console does not show "Not Responding" while CUDA is busy. Keystrokes typed during that submission stay in the terminal input buffer and are not echoed. When the submission returns, the REPL prints the result and then reads the buffered line. The console app does not move a submission onto a worker thread.
+
 `help` and `?` print the same three sections and return to the prompt. `?` is only that command: it is not an operator.
 
 - **Commands.** One line each for `help`, `?`, `who`, `whos`, `clear`, `clear functions`, `saveworkspace`, `loadworkspace`, `save`, `load`, `run`, `clc`, `expect`, `runtests`, `timer on`, `timer off`, `timer`, `cudaversion`, `memory`, `exit`, and `quit`. `?` is the same command as `help`. `save(path, a, b)` writes those variables to a `.cma` data file. `load(path)` reads one back.
@@ -352,7 +354,7 @@ The Types and Functions text is the same text the GUI Help window uses.
 
 A session holds the variables, user functions, cuRAND generator, `.cmw` path, unsaved-changes flag, timer flag, and REPL history. The console app has one session. The GUI has one session per document window. Creating a document window creates a session. Closing a document window frees that session's unified-memory arrays and discards its generator.
 
-The process has one CUDA context and one unified-memory pool. The engine runs one submission at a time. A command typed in a second document window waits until the running submission finishes, then runs. Document windows do not issue overlapping cuBLAS, cuSOLVER, cuRAND, or kernel calls.
+The process has one CUDA context and one unified-memory pool. The engine runs one submission at a time. A command typed in a second document window waits until the running submission finishes, then runs. Document windows do not issue overlapping cuBLAS, cuSOLVER, cuRAND, or kernel calls. In the GUI that submission runs on a worker thread, so a large calculation does not freeze the window. See [Large calculations](#large-calculations).
 
 ## GUI app
 
@@ -365,18 +367,25 @@ The two panes are:
 - That session's REPL: input, history, and printed results. While the input is empty it shows `Enter expression here` in grey italic type. Enter runs the submission. Shift+Enter inserts a line.
 - A list of that session's variables and user functions
 
-The variable list shows name, class, and size. Selecting a function shows its source. Selecting a variable shows its elements; a matrix larger than 24 by 12 shows the first 24 rows and 12 columns. The list refreshes after each successful statement in that session. The menu bar is File and Help. `runtests`, `timer on`, and `timer off` are typed in that document's REPL. `help` and `?` typed there print the same command text the console prints, into that document. Clicking the timer field on that document's status bar toggles that session's timer.
+The variable list shows name, class, and size. Selecting a function shows its source. Selecting a variable shows its elements; a matrix larger than 24 by 12 shows the first 24 rows and 12 columns. The list refreshes when a submission in that session finishes. The menu bar is File and Help. `runtests`, `timer on`, and `timer off` are typed in that document's REPL. `help` and `?` typed there print the same command text the console prints, into that document. Clicking the timer field on that document's status bar toggles that session's timer.
+
+### Large calculations
+
+The GUI is for calculations that are large enough to be worth running on the GPU. A submission such as `rand` or `inv` of a big matrix can run for a long time. The GUI window belongs to this process. If the submission ran on the UI thread, Windows would mark that window "Not Responding". The console avoids that only because the terminal process owns its window. The UI thread does not call the engine. It echoes the command, then a worker thread bound to the process CUDA device runs that submission. While it runs, the window keeps moving, resizing, and repainting. The frame title is `CudaMath — Running`. The document that owns the submission shows `Running` on its status bar, and its empty input shows `Running…`. Another command can be typed. It waits, and that document shows `Waiting`, until the engine is free. One submission still runs at a time.
+
+The variable list, the timer, workspace memory, and CUDA free update when the submission finishes, success or failure. Selecting a variable in the document that is running does not read its arrays until the submission finishes. Closing that document, or exiting, waits until the running submission finishes and then asks about unsaved changes. A command that was only waiting in a document being closed is discarded. A CUDA call that has already started runs to completion.
 
 ### Status bars
 
-A document window's status bar belongs to that session. It shows the timer and that session's workspace memory. The frame's status bar belongs to the process. It shows CUDA free memory and the CUDA version, and it does not change when a different document becomes active.
+A document window's status bar belongs to that session. It shows the timer, whether that session is running or waiting, and that session's workspace memory. The frame's status bar belongs to the process. It shows CUDA free memory and the CUDA version, and it does not change when a different document becomes active. The frame title shows `Running` while a submission is executing.
 
-Workspace memory and CUDA free refresh once when a REPL submission finishes, success or failure. That is the same moment the timer stops. A `for` loop, a `while` loop, a user function, and `runtests` are one submission, so the bars do not repaint on every inner statement. There is no background poll. `cudaMemGetInfo` runs only at that finish. The timer label also refreshes when its field is clicked.
+Workspace memory and CUDA free refresh once when a REPL submission finishes, success or failure. That is the same moment the timer stops. A `for` loop, a `while` loop, a user function, and `runtests` are one submission, so the bars do not repaint on every inner statement. There is no background poll. `cudaMemGetInfo` also runs once when the window opens, so the frame shows the real free amount before any command. The timer label also refreshes when its field is clicked.
 
 | Field | Where | Visible text |
 |---|---|---|
 | Title | Document title bar | That session's file name, or `Workspace N` when it has no path. `N` is the smallest positive integer that no other open unsaved workspace is using. A trailing `*` means that session has unsaved changes. |
 | Timer | Document status bar | That session's `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays in this field, for example `Timer on  12.345 ms`. Clicking this field toggles that session. |
+| Activity | Document status bar | `Running` while that session's submission is executing on the GPU. `Waiting` while a command in that session is queued behind another submission. The field is absent when the session is idle. |
 | Memory | Document status bar | `Memory` and that session's array bytes, for example `0.0 MB`. |
 | CUDA free | Frame status bar | `CUDA free` and the shared unified pool, for example `8192.0 MB`. |
 | CUDA | Frame status bar | The runtime version string that `cudaversion` returns, for example `CUDA 13.4`. |

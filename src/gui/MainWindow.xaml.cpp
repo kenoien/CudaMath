@@ -3,17 +3,22 @@
 #include "MainWindow.xaml.h"
 
 #include <winrt/Microsoft.UI.Input.h>
+#include <winrt/Windows.UI.Text.h>
 
 #include "cudamath/repl.hpp"
 
 #include <microsoft.ui.xaml.window.h>
 #include <shobjidl.h>
 
+#include <coroutine>
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
+#include <future>
 #include <sstream>
+#include <thread>
 
 #if __has_include("MainWindow.g.cpp")
 #include "MainWindow.g.cpp"
@@ -120,12 +125,22 @@ winrt::Brush themeBrush(wchar_t const* key) {
     return winrt::Application::Current().Resources().Lookup(winrt::box_value(winrt::hstring(key))).as<winrt::Brush>();
 }
 
+struct UiResume {
+    winrt::Microsoft::UI::Dispatching::DispatcherQueue queue{nullptr};
+    bool await_ready() const noexcept { return false; }
+    void await_suspend(std::coroutine_handle<> handle) const {
+        if (!queue.TryEnqueue([handle] { handle.resume(); })) handle.resume();
+    }
+    void await_resume() const noexcept {}
+};
+
 }  // namespace
 
 namespace winrt::CudaMathGui::implementation {
 
 MainWindow::MainWindow() {
     InitializeComponent();
+    uiQueue_ = DispatcherQueue();
     Title(L"CudaMath");
     hwnd_ = WindowHandle();
     const UINT dpi = GetDpiForWindow(hwnd_);
@@ -136,7 +151,10 @@ MainWindow::MainWindow() {
     auto appWindow = AppWindow::GetFromWindowId(windowId);
     appWindow.Closing({get_weak(), &MainWindow::WindowClosing});
 
-    CudaStatus().Text(L"CUDA " + widen(cudamath::Engine::instance().cudaVersion()));
+    auto& engine = cudamath::Engine::instance();
+    CudaStatus().Text(L"CUDA " + widen(engine.cudaVersion()));
+    auto& session = engine.createSession();
+    cudaFreeBytes_ = engine.memory(session).cudaFree;
     MdiClient().SizeChanged([this](IInspectable const&, SizeChangedEventArgs const& args) {
         for (auto& entry : tabs_) {
             if (!entry.second.maximized) continue;
@@ -144,7 +162,7 @@ MainWindow::MainWindow() {
             entry.second.frame.Height(args.NewSize().Height);
         }
     });
-    AddTab(cudamath::Engine::instance().createSession());
+    AddTab(session);
 }
 
 HWND MainWindow::WindowHandle() {
@@ -202,8 +220,13 @@ int MainWindow::AddTab(cudamath::Session& session) {
     hint.VerticalAlignment(VerticalAlignment::Top);
     hint.HorizontalAlignment(HorizontalAlignment::Left);
     hint.Margin(Thickness{9, 7, 8, 4});
-    input.TextChanged([hint](IInspectable const& sender, TextChangedEventArgs const&) {
-        hint.Visibility(sender.as<TextBox>().Text().empty() ? Visibility::Visible : Visibility::Collapsed);
+    input.TextChanged([this, id, hint](IInspectable const& sender, TextChangedEventArgs const&) {
+        const bool empty = sender.as<TextBox>().Text().empty();
+        hint.Visibility(empty ? Visibility::Visible : Visibility::Collapsed);
+        if (!empty) return;
+        const bool running = id == runningId_;
+        hint.Text(running ? L"Running\u2026" : L"Enter expression here");
+        hint.FontStyle(running ? winrt::Windows::UI::Text::FontStyle::Normal : winrt::Windows::UI::Text::FontStyle::Italic);
     });
     inputHost.Children().Append(input);
     inputHost.Children().Append(hint);
@@ -230,7 +253,7 @@ int MainWindow::AddTab(cudamath::Session& session) {
     Grid::SetColumn(symbols, 1);
     symbols.SelectionChanged([this, id](IInspectable const&, SelectionChangedEventArgs const&) {
         auto* tab = Find(id);
-        if (tab == nullptr || tab->symbols.SelectedItem() == nullptr) return;
+        if (tab == nullptr || tab->symbols.SelectedItem() == nullptr || id == runningId_) return;
         const std::string name = symbolName(narrow(unbox_value<hstring>(tab->symbols.SelectedItem())));
         tab->source.Text(widen(symbolText(*tab->session, name)));
     });
@@ -327,6 +350,12 @@ int MainWindow::AddTab(cudamath::Session& session) {
         Run(id, tab->session->timer ? "timer off" : "timer on", true);
     });
 
+    TextBlock activity;
+    activity.VerticalAlignment(VerticalAlignment::Center);
+    activity.Margin(Thickness{12, 0, 4, 0});
+    activity.FontWeight(winrt::Windows::UI::Text::FontWeights::SemiBold());
+    activity.Visibility(Visibility::Collapsed);
+
     TextBlock memoryCaption;
     memoryCaption.Text(L"Memory");
     memoryCaption.VerticalAlignment(VerticalAlignment::Center);
@@ -350,15 +379,20 @@ int MainWindow::AddTab(cudamath::Session& session) {
     Grid childStatus;
     ColumnDefinition timerColumn;
     timerColumn.Width(GridLength{0, GridUnitType::Auto});
+    ColumnDefinition activityColumn;
+    activityColumn.Width(GridLength{0, GridUnitType::Auto});
     ColumnDefinition memoryColumn;
     memoryColumn.Width(GridLength{0, GridUnitType::Auto});
     ColumnDefinition restColumn;
     restColumn.Width(GridLength{1, GridUnitType::Star});
     childStatus.ColumnDefinitions().Append(timerColumn);
+    childStatus.ColumnDefinitions().Append(activityColumn);
     childStatus.ColumnDefinitions().Append(memoryColumn);
     childStatus.ColumnDefinitions().Append(restColumn);
     childStatus.Children().Append(timer);
-    Grid::SetColumn(memoryHost, 1);
+    Grid::SetColumn(activity, 1);
+    childStatus.Children().Append(activity);
+    Grid::SetColumn(memoryHost, 2);
     childStatus.Children().Append(memoryHost);
 
     Border childStatusBar;
@@ -443,7 +477,9 @@ int MainWindow::AddTab(cudamath::Session& session) {
     state.titleBar = titleBar;
     state.title = title;
     state.timer = timer;
+    state.activity = activity;
     state.memory = memory;
+    state.hint = hint;
     tabs_.emplace(id, std::move(state));
     Activate(id);
     RefreshSymbols(id);
@@ -560,18 +596,187 @@ void MainWindow::Append(TabState& tab, const std::string& text) {
 }
 
 void MainWindow::Run(int id, const std::string& command, bool echo) {
+    if (closing_) return;
     auto* tab = Find(id);
     if (tab == nullptr) return;
     if (echo) Append(*tab, ">> " + command);
-    const cudamath::ExecResult result = cudamath::execute(cudamath::Engine::instance(), *tab->session, command);
-    if (result.clearOutput) tab->output.Text(L"");
-    if (!result.output.empty()) Append(*tab, result.output);
-    const auto memory = cudamath::Engine::instance().memory(*tab->session);
-    cudaFreeBytes_ = memory.cudaFree;
-    RefreshSymbols(id);
-    RefreshHeader(id);
-    RefreshStatus();
-    if (result.requestExit) CloseTabAsync(id);
+    Enqueue(id, tab->session, command, nullptr);
+    UpdateActivity();
+}
+
+winrt::Windows::Foundation::IAsyncAction MainWindow::RunAsync(int id, std::string command, bool echo) {
+    auto lifetime = get_strong();
+    auto* tab = Find(id);
+    if (tab == nullptr) co_return;
+    if (echo) Append(*tab, ">> " + command);
+    auto done = std::make_shared<std::promise<void>>();
+    auto future = done->get_future();
+    Enqueue(id, tab->session, std::move(command), [done] {
+        try {
+            done->set_value();
+        } catch (...) {
+        }
+    });
+    UpdateActivity();
+    co_await winrt::resume_background();
+    future.wait();
+    co_await UiResume{uiQueue_};
+}
+
+winrt::Windows::Foundation::IAsyncAction MainWindow::WaitUntilIdle() {
+    auto lifetime = get_strong();
+    while (Busy()) {
+        co_await winrt::resume_after(std::chrono::milliseconds(50));
+        co_await UiResume{uiQueue_};
+    }
+}
+
+void MainWindow::Enqueue(int id, cudamath::Session* session, std::string command, std::function<void()> done) {
+    bool start = false;
+    {
+        std::lock_guard<std::mutex> lock(jobsMutex_);
+        if (!workerRunning_) {
+            workerRunning_ = true;
+            start = true;
+        }
+        jobs_.push_back(Job{id, session, std::move(command), std::move(done)});
+    }
+    if (start) {
+        runningId_ = id;
+        StartWorker();
+    }
+}
+
+void MainWindow::StartWorker() {
+    auto lifetime = get_strong();
+    std::thread([this, lifetime] {
+        cudamath::Engine::instance().bindThread();
+        for (;;) {
+            Job job;
+            {
+                std::lock_guard<std::mutex> lock(jobsMutex_);
+                if (jobs_.empty()) {
+                    workerRunning_ = false;
+                    return;
+                }
+                job = std::move(jobs_.front());
+                jobs_.pop_front();
+            }
+            auto work = std::make_shared<Job>(std::move(job));
+            OnUi([this, id = work->id] {
+                runningId_ = id;
+                UpdateActivity();
+            });
+            cudamath::ExecResult result;
+            double freeBytes = cudaFreeBytes_;
+            try {
+                result = cudamath::execute(cudamath::Engine::instance(), *work->session, work->command);
+                freeBytes = cudamath::Engine::instance().memory(*work->session).cudaFree;
+            } catch (const std::exception& error) {
+                result.output = std::string("Error: ") + error.what() + "\n";
+            }
+            OnUi([this, work, result = std::move(result), freeBytes] {
+                auto* tab = Find(work->id);
+                if (tab != nullptr) {
+                    if (result.clearOutput) tab->output.Text(L"");
+                    if (!result.output.empty()) Append(*tab, result.output);
+                    cudaFreeBytes_ = freeBytes;
+                    RefreshSymbols(work->id);
+                    RefreshHeader(work->id);
+                }
+                if (runningId_ == work->id) runningId_ = -1;
+                RefreshStatus();
+                const bool close = result.requestExit || pendingClose_.count(work->id) != 0;
+                pendingClose_.erase(work->id);
+                if (work->done) work->done();
+                if (close) {
+                    DropQueued(work->id);
+                    CloseTabAsync(work->id);
+                }
+            });
+        }
+    }).detach();
+}
+
+void MainWindow::OnUi(std::function<void()> work) {
+    auto gate = std::make_shared<std::promise<void>>();
+    auto wait = gate->get_future();
+    const bool posted = uiQueue_.TryEnqueue([gate, work = std::move(work)] {
+        try {
+            work();
+        } catch (...) {
+        }
+        gate->set_value();
+    });
+    if (!posted) gate->set_value();
+    wait.wait();
+}
+
+void MainWindow::UpdateActivity() {
+    std::set<int> queued;
+    {
+        std::lock_guard<std::mutex> lock(jobsMutex_);
+        for (const auto& job : jobs_) queued.insert(job.id);
+    }
+    Title(runningId_ >= 0 ? L"CudaMath \u2014 Running" : L"CudaMath");
+    for (auto& entry : tabs_) {
+        auto& tab = entry.second;
+        const bool running = entry.first == runningId_;
+        const bool waiting = !running && queued.count(entry.first) != 0;
+        if (running) {
+            tab.activity.Text(L"Running");
+            tab.activity.Foreground(themeBrush(L"AccentFillColorDefaultBrush"));
+            tab.activity.Visibility(Visibility::Visible);
+        } else if (waiting) {
+            tab.activity.Text(L"Waiting");
+            tab.activity.Foreground(themeBrush(L"TextFillColorSecondaryBrush"));
+            tab.activity.Visibility(Visibility::Visible);
+        } else {
+            tab.activity.Text(L"");
+            tab.activity.Visibility(Visibility::Collapsed);
+        }
+        if (tab.hint != nullptr && tab.input.Text().empty()) {
+            tab.hint.Text(running ? L"Running\u2026" : L"Enter expression here");
+            tab.hint.FontStyle(running ? winrt::Windows::UI::Text::FontStyle::Normal
+                                       : winrt::Windows::UI::Text::FontStyle::Italic);
+        }
+    }
+}
+
+bool MainWindow::Busy() {
+    if (runningId_ >= 0) return true;
+    std::lock_guard<std::mutex> lock(jobsMutex_);
+    return workerRunning_ || !jobs_.empty();
+}
+
+bool MainWindow::DocumentBusy(int id) {
+    if (runningId_ == id) return true;
+    return Queued(id);
+}
+
+bool MainWindow::Queued(int id) {
+    std::lock_guard<std::mutex> lock(jobsMutex_);
+    for (const auto& job : jobs_) {
+        if (job.id == id) return true;
+    }
+    return false;
+}
+
+void MainWindow::DropQueued(int id) {
+    std::vector<std::function<void()>> done;
+    {
+        std::lock_guard<std::mutex> lock(jobsMutex_);
+        std::deque<Job> keep;
+        for (auto& job : jobs_) {
+            if (id < 0 || job.id == id) {
+                if (job.done) done.push_back(std::move(job.done));
+            } else {
+                keep.push_back(std::move(job));
+            }
+        }
+        jobs_ = std::move(keep);
+    }
+    for (auto& fn : done) fn();
 }
 
 void MainWindow::RefreshSymbols(int id) {
@@ -615,19 +820,27 @@ void MainWindow::RefreshStatus() {
     for (auto& entry : tabs_) {
         auto& tab = entry.second;
         const bool active = entry.first == activeId_;
-        tab.title.Text(widen(tab.session->title()));
         tab.titleBar.Background(active ? activeFill : inactiveFill);
         tab.title.Foreground(active ? activeText : inactiveText);
         tab.frame.Background(active ? activeBorder : inactiveBorder);
         tab.frame.Padding(Thickness{1});
-        tab.timer.Content(box_value(widen(cudamath::statusTimer(*tab.session))));
-        tab.memory.Text(megabytes(tab.session->workspaceBytes()));
+        if (entry.first != runningId_) {
+            tab.title.Text(widen(tab.session->title()));
+            tab.timer.Content(box_value(widen(cudamath::statusTimer(*tab.session))));
+            tab.memory.Text(megabytes(tab.session->workspaceBytes()));
+        }
     }
+    UpdateActivity();
 }
 
 void MainWindow::RemoveTab(int id) {
     auto* tab = Find(id);
     if (tab == nullptr) return;
+    if (DocumentBusy(id)) {
+        pendingClose_.insert(id);
+        DropQueued(id);
+        return;
+    }
     cudamath::Session* session = tab->session;
     Border frame = tab->frame;
     tabs_.erase(id);
@@ -719,6 +932,11 @@ winrt::fire_and_forget MainWindow::CloseTabAsync(int id) {
     auto lifetime = get_strong();
     auto* tab = Find(id);
     if (tab == nullptr) co_return;
+    if (DocumentBusy(id)) {
+        pendingClose_.insert(id);
+        DropQueued(id);
+        co_return;
+    }
     if (tab->session->dirty) {
         ContentDialog dialog;
         dialog.XamlRoot(Content().XamlRoot());
@@ -760,11 +978,13 @@ winrt::Windows::Foundation::IAsyncOperation<bool> MainWindow::PickAndSave(int id
         if (path.size() < 4 || path.substr(path.size() - 4) != ".cmw") path += ".cmw";
     }
     try {
-        Run(id, "saveworkspace " + quotePath(path), false);
+        co_await RunAsync(id, "saveworkspace " + quotePath(path), false);
     } catch (const std::exception& error) {
         MessageBoxW(WindowHandle(), widen(error.what()).c_str(), L"CudaMath", MB_OK | MB_ICONERROR);
         co_return false;
     }
+    tab = Find(id);
+    if (tab == nullptr) co_return false;
     co_return tab->session->path == path && !tab->session->dirty;
 }
 
@@ -802,6 +1022,8 @@ winrt::fire_and_forget MainWindow::ExitAsync() {
     auto lifetime = get_strong();
     if (closing_) co_return;
     closing_ = true;
+    DropQueued(-1);
+    co_await WaitUntilIdle();
     std::vector<int> ids;
     for (const auto& entry : tabs_) ids.push_back(entry.first);
     for (int id : ids) {

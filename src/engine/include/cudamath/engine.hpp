@@ -27,6 +27,10 @@ public:
 
     bool ready() const { return ready_; }
     std::string cudaVersion() const;
+    int device() const { return device_; }
+    // Makes this thread current on the process CUDA device. The GUI calls
+    // this on the worker that runs a submission.
+    void bindThread() const;
     MemoryInfo memory(const Session& session) const;
 
     Session& createSession();
@@ -41,6 +45,7 @@ public:
 private:
     Engine() = default;
     bool ready_{false};
+    int device_{0};
     int runtimeVersion_{0};
     void* cublas_{nullptr};
     void* solver_{nullptr};

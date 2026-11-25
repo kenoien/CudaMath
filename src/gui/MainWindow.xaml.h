@@ -4,7 +4,11 @@
 
 #include "pch.h"
 
+#include <deque>
+#include <functional>
 #include <map>
+#include <mutex>
+#include <set>
 #include <string>
 
 namespace cudamath {
@@ -23,7 +27,9 @@ struct TabState {
     Microsoft::UI::Xaml::Controls::Border titleBar{nullptr};
     Microsoft::UI::Xaml::Controls::TextBlock title{nullptr};
     Microsoft::UI::Xaml::Controls::Button timer{nullptr};
+    Microsoft::UI::Xaml::Controls::TextBlock activity{nullptr};
     Microsoft::UI::Xaml::Controls::TextBlock memory{nullptr};
+    Microsoft::UI::Xaml::Controls::TextBlock hint{nullptr};
     bool maximized{false};
     double restoreLeft{0};
     double restoreTop{0};
@@ -51,7 +57,24 @@ private:
     void ToggleMaximize(int id);
     int SelectedId();
     TabState* Find(int id);
+    struct Job {
+        int id{0};
+        cudamath::Session* session{nullptr};
+        std::string command;
+        std::function<void()> done;
+    };
+
     void Run(int id, const std::string& command, bool echo);
+    winrt::Windows::Foundation::IAsyncAction RunAsync(int id, std::string command, bool echo);
+    winrt::Windows::Foundation::IAsyncAction WaitUntilIdle();
+    void Enqueue(int id, cudamath::Session* session, std::string command, std::function<void()> done);
+    void StartWorker();
+    void OnUi(std::function<void()> work);
+    void UpdateActivity();
+    bool Busy();
+    bool DocumentBusy(int id);
+    bool Queued(int id);
+    void DropQueued(int id);
     void RefreshSymbols(int id);
     void RefreshHeader(int id);
     void RefreshStatus();
@@ -80,6 +103,12 @@ private:
     double resizeWidth_{0};
     double resizeHeight_{0};
     double cudaFreeBytes_{0};
+    std::mutex jobsMutex_;
+    std::deque<Job> jobs_;
+    bool workerRunning_{false};
+    int runningId_{-1};
+    std::set<int> pendingClose_;
+    Microsoft::UI::Dispatching::DispatcherQueue uiQueue_{nullptr};
     bool allowClose_{false};
     bool closing_{false};
     HWND hwnd_{nullptr};
