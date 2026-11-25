@@ -11,6 +11,9 @@
 #include <vector>
 
 namespace cudamath {
+
+Value cloneArray(const Value& value);
+
 namespace {
 
 extern "C" void cm_add_f64(double*, const double*, const double*, std::size_t);
@@ -192,6 +195,31 @@ Value binary(const Value& left, const Value& right, char op, bool elementwise) {
         throw std::runtime_error("arithmetic requires numeric arrays");
     }
     if (!elementwise && op == '*') {
+        const bool leftScalar = left.numel() == 1;
+        const bool rightScalar = right.numel() == 1;
+        if (leftScalar != rightScalar) {
+            const Value& factor = leftScalar ? left : right;
+            const Value& matrix = leftScalar ? right : left;
+            const bool single = factor.type == DType::F32 && matrix.type == DType::F32;
+            Value out = cloneArray(promote(matrix, single ? DType::F32 : DType::F64));
+            if (out.numel() > 0) {
+                const Value alphaValue = promote(factor, out.type);
+                auto handle = reinterpret_cast<cublasHandle_t>(Engine::instance().cublas());
+                cublasStatus_t status = CUBLAS_STATUS_SUCCESS;
+                if (out.type == DType::F32) {
+                    const float alpha = static_cast<float>(alphaValue.get(0));
+                    status = cublasSscal(handle, static_cast<int>(out.numel()), &alpha, static_cast<float*>(out.data()), 1);
+                } else {
+                    const double alpha = alphaValue.get(0);
+                    status = cublasDscal(handle, static_cast<int>(out.numel()), &alpha, static_cast<double*>(out.data()), 1);
+                }
+                if (status != CUBLAS_STATUS_SUCCESS) {
+                    throw std::runtime_error("cublas scal failed");
+                }
+                sync();
+            }
+            return out;
+        }
         if (left.cols != right.rows) {
             throw std::runtime_error("inner dimensions must agree");
         }

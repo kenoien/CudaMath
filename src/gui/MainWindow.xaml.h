@@ -19,7 +19,16 @@ struct TabState {
     Microsoft::UI::Xaml::Controls::TextBox input{nullptr};
     Microsoft::UI::Xaml::Controls::ListView symbols{nullptr};
     Microsoft::UI::Xaml::Controls::TextBlock source{nullptr};
-    Microsoft::UI::Xaml::Controls::TabViewItem item{nullptr};
+    Microsoft::UI::Xaml::Controls::Border frame{nullptr};
+    Microsoft::UI::Xaml::Controls::Border titleBar{nullptr};
+    Microsoft::UI::Xaml::Controls::TextBlock title{nullptr};
+    Microsoft::UI::Xaml::Controls::Button timer{nullptr};
+    Microsoft::UI::Xaml::Controls::TextBlock memory{nullptr};
+    bool maximized{false};
+    double restoreLeft{0};
+    double restoreTop{0};
+    double restoreWidth{0};
+    double restoreHeight{0};
 };
 
 struct MainWindow : MainWindowT<MainWindow> {
@@ -33,11 +42,13 @@ struct MainWindow : MainWindowT<MainWindow> {
     void HelpClick(Windows::Foundation::IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void AboutClick(Windows::Foundation::IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
     void TimerClick(Windows::Foundation::IInspectable const&, Microsoft::UI::Xaml::RoutedEventArgs const&);
-    void TabCloseRequested(Microsoft::UI::Xaml::Controls::TabView const&, Microsoft::UI::Xaml::Controls::TabViewTabCloseRequestedEventArgs const&);
-    void SessionChanged(Windows::Foundation::IInspectable const&, Microsoft::UI::Xaml::Controls::SelectionChangedEventArgs const&);
 
 private:
     int AddTab(cudamath::Session& session);
+    void Activate(int id);
+    void AttachResize(Microsoft::UI::Xaml::Controls::Border const& strip, int id, int edge);
+    void ApplyResize(Microsoft::UI::Xaml::Input::PointerRoutedEventArgs const& args);
+    void ToggleMaximize(int id);
     int SelectedId();
     TabState* Find(int id);
     void Run(int id, const std::string& command, bool echo);
@@ -56,6 +67,18 @@ private:
 
     std::map<int, TabState> tabs_;
     int nextId_{1};
+    int activeId_{-1};
+    int zOrder_{1};
+    int gestureId_{-1};
+    bool dragging_{false};
+    bool resizing_{false};
+    int resizeEdge_{0};
+    double gestureX_{0};
+    double gestureY_{0};
+    double resizeLeft_{0};
+    double resizeTop_{0};
+    double resizeWidth_{0};
+    double resizeHeight_{0};
     double cudaFreeBytes_{0};
     bool allowClose_{false};
     bool closing_{false};

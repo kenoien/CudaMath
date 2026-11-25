@@ -75,8 +75,8 @@ tests 'more'
 
   test 'print'
     expect(print([1 2 3]), '1 2 3')
-    expect(prn(int32([4; 5])), '4
-5')
+    expect(prn(int32([4 5])), '4 5')
+    expect(prn(int32([4; 5])), prn([4; 5]))
     expect(class(print(zeros(8, 9))), 'char')
   end
 

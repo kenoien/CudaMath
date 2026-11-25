@@ -15,7 +15,7 @@ struct UserFunction {
     std::string body;
 };
 
-// One workspace. The console app has one. Each GUI tab has one.
+// One workspace. The console app has one. Each GUI document window has one.
 // The cuRAND generator handle lives in the engine .cpp so this header
 // stays free of CUDA types.
 struct Session {

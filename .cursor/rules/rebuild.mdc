@@ -1,0 +1,13 @@
+---
+description: Clean, build, and test both configurations when the user says rebuild
+alwaysApply: true
+---
+
+# Rebuild
+
+When the user says rebuild, do all of the following, then report the test results:
+
+1. Clean the Debug and Release ARM64 configurations.
+2. Build Debug and Release ARM64.
+3. Run `target\ARM64\Debug\CudaMathTests.exe` and `target\ARM64\Release\CudaMathTests.exe`.
+4. Report each configuration's result with the number of tests that passed and the number that failed. Include each suite's own passed and failed counts, then the combined total. Name every failing check.

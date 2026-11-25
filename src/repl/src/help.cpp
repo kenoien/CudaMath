@@ -67,10 +67,11 @@ std::string helpDocument() {
     return std::string(
         "App\n"
         "  CudaMath is a MATLAB-style REPL that calls the CUDA math libraries.\n"
-        "  The console has one session. The window has one session per tab.\n"
-        "  Each tab has a REPL and a list of that session's variables and user functions.\n"
-        "  Selecting a function shows its source.\n"
-        "  The status bar shows the workspace name, the timer, workspace memory, and the CUDA version.\n"
+        "  The console has one session. The window has one session per document window.\n"
+        "  Each document window has a REPL and a list of that session's variables and user functions.\n"
+        "  Selecting a function shows its source. Selecting a variable shows its elements.\n"
+        "  Each workspace is a document window. Its title is the workspace name, and its status bar shows that window's timer and memory.\n"
+        "  The frame status bar shows CUDA free memory and the CUDA version for the whole process.\n"
         "  Click the timer field to turn the timer on or off.\n"
         "  A tests/end tests file is a suite. Workspace files use .cmw. Scripts use .cm.\n"
         "\n") + kTypes + kFunctions;

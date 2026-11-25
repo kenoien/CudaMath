@@ -1,6 +1,6 @@
 # CudaMath
 
-CudaMath is a Windows math workspace for the NVIDIA N1X. A C++ engine owns the data and calls CUDA for the math. The user types a MATLAB-style language in a REPL. Two apps share that engine: a console app with one session, and a WinUI 3 window with one tab per session.
+CudaMath is a Windows math workspace for the NVIDIA N1X. A C++ engine owns the data and calls CUDA for the math. The user types a MATLAB-style language in a REPL. Two apps share that engine: a console app with one session, and a WinUI 3 window with one document window per session.
 
 The engine is a front end. Dense linear algebra goes to cuBLAS and cuSOLVER. Random arrays come from cuRAND. Elementwise and reduction math goes through small kernels that call the CUDA math API. The project does not reimplement those libraries.
 
@@ -10,7 +10,7 @@ The engine is a front end. Dense linear algebra goes to cuBLAS and cuSOLVER. Ran
 - Unified memory only. Every numeric array is allocated with `cudaMallocManaged`.
 - Host and device use the same pointers. There is no explicit host/device copy of workspace data.
 - One CUDA context per process, owned by the engine. A session never creates its own context.
-- The GUI holds one session per tab. The console app holds one session. Sessions do not share variables, user functions, or cuRAND state.
+- The GUI holds one session per document window. The console app holds one session. Sessions do not share variables, user functions, or cuRAND state.
 
 Before either app opens a REPL, the engine checks that this process can use CUDA unified memory. The CUDA runtime is loaded dynamically, so a missing driver DLL takes the same path as a failed check. The check passes only when all of these are true:
 
@@ -40,7 +40,7 @@ Tool chain on this machine:
 | CudaMathEngine | static lib | Values, unified memory, CUDA calls, random generator, workspace, saveworkspace/loadworkspace |
 | CudaMathRepl | static lib | MATLAB-style parser and interpreter |
 | CudaMathCli | console exe | REPL in a terminal |
-| CudaMathGui | WinUI 3 exe | One tab per session, each tab a REPL pane plus a pane of variables and functions |
+| CudaMathGui | WinUI 3 exe | One document window per session, each window a REPL pane plus a pane of variables and functions |
 
 ## Numeric model
 
@@ -112,7 +112,7 @@ These run on the host. `saveworkspace` and `loadworkspace` are the serialization
 | `timer off` | Stop reporting elapsed time |
 | `timer` | Print `timer on` or `timer off` |
 | `help` | Print commands, types, and built-in functions. See the console app. |
-| `?` | Same as `help`. In the console REPL and in a GUI tab's REPL. |
+| `?` | Same as `help`. In the console REPL and in a GUI document window's REPL. |
 | `cudaversion` | Return the loaded CUDA runtime version from the engine, such as `13.4`. The value is a string in `ans`. |
 | `memory` | Print the three byte counts below, each with its explanation. `ans` is a 3-by-1 `double` of workspace, CUDA total, and CUDA free. |
 
@@ -350,45 +350,50 @@ The Types and Functions text is the same text the GUI Help window uses.
 
 ## Sessions
 
-A session holds the variables, user functions, cuRAND generator, `.cmw` path, unsaved-changes flag, timer flag, and REPL history. The console app has one session. The GUI has one session per tab. Creating a tab creates a session. Closing a tab frees that session's unified-memory arrays and discards its generator.
+A session holds the variables, user functions, cuRAND generator, `.cmw` path, unsaved-changes flag, timer flag, and REPL history. The console app has one session. The GUI has one session per document window. Creating a document window creates a session. Closing a document window frees that session's unified-memory arrays and discards its generator.
 
-The process has one CUDA context and one unified-memory pool. The engine runs one submission at a time. A command typed in a second tab waits until the running submission finishes, then runs. Tabs do not issue overlapping cuBLAS, cuSOLVER, cuRAND, or kernel calls.
+The process has one CUDA context and one unified-memory pool. The engine runs one submission at a time. A command typed in a second document window waits until the running submission finishes, then runs. Document windows do not issue overlapping cuBLAS, cuSOLVER, cuRAND, or kernel calls.
 
 ## GUI app
 
-`CudaMathGui` runs the unified-memory check before it creates the main window. On failure it shows the error in a dialog, and the process exits when the dialog is dismissed. On success it shows a WinUI 3 window with a menu bar, a row of tabs, and a status bar. The window opens with one tab, an empty session named `Workspace 1`.
+`CudaMathGui` runs the unified-memory check before it creates the main window. On failure it shows the error in a dialog, and the process exits when the dialog is dismissed. On success it shows a WinUI 3 frame: a menu bar, an MDI client, and a process status bar. The window opens with one document window, an empty session named `Workspace 1`.
 
-Each tab is one session and contains two panes:
+Each document window is one session. It has a border, a title bar, two panes, and its own status bar. The active window's border uses the accent color. The title bar shows that session's name. Dragging the title bar moves the window inside the frame. Dragging an edge or a corner resizes it. Double-clicking the title bar fills the client area, and double-clicking again restores the previous size and position. Clicking a window brings it to the front and makes it the active document. File commands apply to that active document. New document windows cascade down and to the right.
 
-- One pane is that session's REPL: input, history, and printed results. While the input is empty it shows `Enter expression here` in grey italic type. Enter runs the submission. Shift+Enter inserts a line.
-- The other pane lists that session's variables and user functions
+The two panes are:
 
-The variable list shows name, class, and size. Selecting a function shows its source. The list refreshes after each successful statement in that session. The menu bar is File and Help. File commands apply to the active tab. `runtests`, `timer on`, and `timer off` are typed in that tab's REPL. `help` and `?` typed in that tab's REPL print the same command text the console prints, into that tab. Clicking the status-bar timer field toggles the active session's timer.
+- That session's REPL: input, history, and printed results. While the input is empty it shows `Enter expression here` in grey italic type. Enter runs the submission. Shift+Enter inserts a line.
+- A list of that session's variables and user functions
 
-### Status bar
+The variable list shows name, class, and size. Selecting a function shows its source. Selecting a variable shows its elements; a matrix larger than 24 by 12 shows the first 24 rows and 12 columns. The list refreshes after each successful statement in that session. The menu bar is File and Help. `runtests`, `timer on`, and `timer off` are typed in that document's REPL. `help` and `?` typed there print the same command text the console prints, into that document. Clicking the timer field on that document's status bar toggles that session's timer.
 
-The bottom of the window is one status bar for the active tab. Switching tabs shows that tab's file name, timer, and workspace usage. CUDA Free and the CUDA version stay as they are, because they belong to the process. Workspace used and CUDA Free refresh once when a REPL submission finishes, success or failure. That is the same moment the timer stops. A `for` loop, a `while` loop, a user function, and `runtests` are one submission, so the bar does not repaint on every inner statement. There is no background poll. `cudaMemGetInfo` runs only at that finish. The timer label also refreshes when its status-bar field is clicked.
+### Status bars
 
-| Field | Visible text |
-|---|---|
-| Workspace | Active tab's file name, or `Workspace N` when that session has no path. `N` is the smallest positive integer that no other open unsaved workspace is using. A trailing `*` means that session has unsaved changes. |
-| Timer | Active session's `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays in this field, for example `Timer on  12.345 ms`. Clicking this field toggles the active session. |
-| Memory | `Workspace used 12.0 MB    CUDA Free 8192.0 MB` |
-| CUDA | The runtime version string that `cudaversion` returns, for example `CUDA 13.4`. |
+A document window's status bar belongs to that session. It shows the timer and that session's workspace memory. The frame's status bar belongs to the process. It shows CUDA free memory and the CUDA version, and it does not change when a different document becomes active.
 
-The memory labels are `Workspace used` and `CUDA Free`, each followed by a number in megabytes of 1024×1024 bytes, with one decimal place. Workspace used is the active session's arrays. CUDA Free is the shared unified pool. Both are the counts from `memory`, scaled into MB. CUDA total stays on the `memory` command. In a tab, `memory` reports that session's workspace bytes and the process CUDA total and free.
+Workspace memory and CUDA free refresh once when a REPL submission finishes, success or failure. That is the same moment the timer stops. A `for` loop, a `while` loop, a user function, and `runtests` are one submission, so the bars do not repaint on every inner statement. There is no background poll. `cudaMemGetInfo` runs only at that finish. The timer label also refreshes when its field is clicked.
+
+| Field | Where | Visible text |
+|---|---|---|
+| Title | Document title bar | That session's file name, or `Workspace N` when it has no path. `N` is the smallest positive integer that no other open unsaved workspace is using. A trailing `*` means that session has unsaved changes. |
+| Timer | Document status bar | That session's `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays in this field, for example `Timer on  12.345 ms`. Clicking this field toggles that session. |
+| Memory | Document status bar | `Memory` and that session's array bytes, for example `0.0 MB`. |
+| CUDA free | Frame status bar | `CUDA free` and the shared unified pool, for example `8192.0 MB`. |
+| CUDA | Frame status bar | The runtime version string that `cudaversion` returns, for example `CUDA 13.4`. |
+
+Memory numbers are megabytes of 1024×1024 bytes, with one decimal place. Document memory is that session's arrays. CUDA free is the shared unified pool. Both are the counts from `memory`, scaled into MB. CUDA total stays on the `memory` command. In a document, `memory` reports that session's workspace bytes and the process CUDA total and free.
 
 ### File
 
 | Item | Action |
 |---|---|
-| New Workspace | Open a tab on a new empty session. |
-| Open Workspace | Pick a `.cmw` file and open it in a new tab. If the active tab is an unsaved session with no variables, no user functions, and no unsaved changes, load the file into that tab instead. |
+| New Workspace | Open a document window on a new empty session. |
+| Open Workspace | Pick a `.cmw` file and open it in a new document window. If the active document is an unsaved session with no variables, no user functions, and no unsaved changes, load the file into that document instead. |
 | Save Workspace | `saveworkspace` for the active session. If that session has no path yet, ask for one and require the `.cmw` extension. |
-| Open Script | Pick a `.cm` file and execute it in the active tab. Output appears in that tab's REPL. A file that contains `tests` / `end tests` is executed with `runtests`, so that session is restored afterward. Any other script is executed with `run` in that session. |
-| Exit | Close every tab and leave the process. |
+| Open Script | Pick a `.cm` file and execute it in the active document. Output appears in that document's REPL. A file that contains `tests` / `end tests` is executed with `runtests`, so that session is restored afterward. Any other script is executed with `run` in that session. |
+| Exit | Close every document window and leave the process. |
 
-Closing a tab asks for confirmation when that session has unsaved changes. Cancel leaves the tab open. Exit, and the title-bar close button, ask once for each dirty session. A successful save clears that session's dirty flag. REPL `loadworkspace` in a tab replaces that session and sets its path. The tab title is the file name, or `Workspace N` while the session has no path. Saving or loading a path frees that `N` for a later unsaved workspace. A `*` on the tab title means unsaved changes.
+Closing a document window asks for confirmation when that session has unsaved changes. Cancel leaves the window open. Exit, and the frame's close button, ask once for each dirty session. A successful save clears that session's dirty flag. REPL `loadworkspace` in a document replaces that session and sets its path. The document title is the file name, or `Workspace N` while the session has no path. Saving or loading a path frees that `N` for a later unsaved workspace. A `*` on the document title means unsaved changes.
 
 ### Help
 
@@ -399,7 +404,7 @@ Closing a tab asks for confirmation when that session has unsaved changes. Cance
 
 The help window is a short document stored in the app, with three sections:
 
-- **App.** What CudaMath is, the REPL, tabs and sessions, the variable pane, the timer, tests, and workspace files.
+- **App.** What CudaMath is, the REPL, document windows and sessions, the variable pane, the timer, tests, and workspace files.
 - **Types.** `double`, `single`, `int32`, and `int64`. A bare literal is `double`. Values are dense 2-D column-major arrays, and a scalar is 1-by-1.
 - **Functions.** One line each for the built-ins in this spec, in the same groups: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER. Include `expect`, `run`, `runtests`, `timer`, `help`, `?`, `cudaversion`, and `memory`. `?` is the same command as `help`. The same section shows a user function: `function y = add(a, b)` through `end`, called as `add(1, 2)`. The call passes one value for each argument name, in that order, and the function returns the value assigned to `y`. `function y = name()` takes no arguments. `function show(a)` returns no value. The Types and Functions text is shared with the console `help` command.
 

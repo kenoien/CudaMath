@@ -2,12 +2,16 @@
 
 #include <windows.h>
 
+#include <cstdio>
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
 
 namespace {
 
+int gPasses = 0;
 int gFailures = 0;
 
 void locateRepo() {
@@ -30,6 +34,7 @@ cudamath::Session& fresh(cudamath::Engine& engine) {
 
 void check(bool ok, const std::string& name, const std::string& detail) {
     if (ok) {
+        ++gPasses;
         std::cout << "PASS  " << name << '\n';
         return;
     }
@@ -130,7 +135,22 @@ void checkSuite(cudamath::Engine& engine, const std::string& path) {
     const auto ans = session.vars.find("ans");
     const bool passed = ans != session.vars.end() && !ans->second.isString && ans->second.get(0) == 0 &&
                         result.output.find("Error:") == std::string::npos;
-    check(passed, path, passed ? "" : result.output);
+    int suitePasses = 0;
+    int suiteFails = 0;
+    const auto marker = result.output.rfind(" passed, ");
+    if (marker != std::string::npos) {
+        const auto line = result.output.rfind('\n', marker);
+        const auto start = line == std::string::npos ? 0 : line + 1;
+        std::sscanf(result.output.c_str() + start, "%d passed, %d failed", &suitePasses, &suiteFails);
+    }
+    gPasses += suitePasses;
+    gFailures += suiteFails;
+    const std::string detail = std::to_string(suitePasses) + " passed, " + std::to_string(suiteFails) + " failed";
+    if (passed && suiteFails == 0) std::cout << "PASS  " << path << ": " << detail << '\n';
+    else {
+        if (suitePasses == 0 && suiteFails == 0) ++gFailures;
+        std::cout << "FAIL  " << path << ": " << detail << '\n' << result.output;
+    }
     engine.destroySession(session);
 }
 
@@ -162,10 +182,36 @@ int main() {
     checkSuite(engine, "tests/smoke.cm");
     checkSuite(engine, "tests/commands.cm");
     checkSuite(engine, "tests/more.cm");
-    if (gFailures != 0) {
-        std::cerr << gFailures << " failed\n";
-        return 1;
+    checkSuite(engine, "tests/data.cm");
+    {
+        std::ifstream file("tests/_out/big.cma", std::ios::binary);
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        const std::string text = buffer.str();
+        std::ifstream bin("tests/_out/big.cma.bin", std::ios::binary | std::ios::ate);
+        const auto bytes = bin ? static_cast<std::int64_t>(bin.tellg()) : -1;
+        const auto int32Bytes = 520ll * 520ll * 4ll;
+        const auto fourBytes = 400ll * 350ll * 8ll + 560ll * 500ll * 4ll + int32Bytes + 380ll * 360ll * 8ll;
+        std::ifstream eight("tests/_out/eight.cma", std::ios::binary);
+        std::stringstream eightText;
+        eightText << eight.rdbuf();
+        std::ifstream int32bin("tests/_out/one-int32.cma.bin", std::ios::binary | std::ios::ate);
+        std::ifstream fourbin("tests/_out/four.cma.bin", std::ios::binary | std::ios::ate);
+        const auto int32Size = int32bin ? static_cast<std::int64_t>(int32bin.tellg()) : -1;
+        const auto fourSize = fourbin ? static_cast<std::int64_t>(fourbin.tellg()) : -1;
+        check(text.find("\"sidecar\"") != std::string::npos && bytes == 200ll * 700ll * 8ll,
+              "large double uses a sidecar", text.substr(0, 180));
+        check(int32Size == int32Bytes, "large int32 uses a sidecar", std::to_string(int32Size));
+        check(fourSize == fourBytes, "four large matrices share one sidecar", std::to_string(fourSize));
+        check(eightText.str().find("\"sidecar\"") == std::string::npos, "small and medium matrices stay inline",
+              eightText.str().substr(0, 180));
+        auto& session = fresh(engine);
+        const auto missing = run(engine, session, "save('tests/_out/nope.cma', nosuch)");
+        const auto wrongType = run(engine, session, "a = 1; save('tests/_out/nope.dat', a)");
+        check(missing.find("undefined variable") != std::string::npos, "save rejects a missing name", missing);
+        check(wrongType.find(".cma") != std::string::npos, "save rejects a non-cma path", wrongType);
+        engine.destroySession(session);
     }
-    std::cout << "all tests passed\n";
-    return 0;
+    std::cout << gPasses << " passed, " << gFailures << " failed\n";
+    return gFailures == 0 ? 0 : 1;
 }
