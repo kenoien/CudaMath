@@ -17,7 +17,7 @@ const char* kTypes =
 const char* kFunctions =
     "Functions\n"
     "  zeros, ones, eye, diag, linspace, repmat, reshape, tril, triu\n"
-    "  size, numel, length, ndims, isempty, class, horzcat, vertcat\n"
+    "  size, numel, length, ndims, isempty, class, horzcat, vertcat, print, prn\n"
     "  double, single, int32, int64\n"
     "  rng, rand, randn, randi\n"
     "  abs, sign, sqrt, exp, log, log2, log10, sin, cos, tan\n"
@@ -49,6 +49,8 @@ std::string helpText() {
         "  clear functions      remove user functions\n"
         "  saveworkspace path   write a .cmw workspace file\n"
         "  loadworkspace path   replace the workspace from a .cmw file\n"
+        "  save(path, a, b)     write named variables to a .cma data file\n"
+        "  load(path)           read a .cma data file into the workspace\n"
         "  run path             execute a .cm script in this session\n"
         "  clc                  clear the REPL output\n"
         "  expect               compare an actual value with an expected value\n"

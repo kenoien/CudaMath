@@ -133,7 +133,15 @@ int MainWindow::AddTab(cudamath::Session& session) {
     input.FontFamily(consolas);
     input.MinHeight(72);
     input.Margin(Thickness{8, 4, 4, 8});
-    input.PlaceholderText(L"Enter runs the submission. Shift+Enter inserts a line.");
+    input.PlaceholderText(L"Enter expression here");
+    input.Loaded([](IInspectable const& sender, RoutedEventArgs const&) {
+        auto box = sender.as<TextBox>();
+        box.ApplyTemplate();
+        auto presenter = box.FindName(L"PlaceholderTextContentPresenter").try_as<TextBlock>();
+        if (!presenter) return;
+        presenter.FontStyle(Windows::UI::Text::FontStyle::Italic);
+        presenter.Foreground(SolidColorBrush{Windows::UI::Color{255, 128, 128, 128}});
+    });
     Grid::SetRow(input, 1);
     Grid::SetColumn(input, 0);
     input.PreviewKeyDown([this, id](IInspectable const&, KeyRoutedEventArgs const& args) {

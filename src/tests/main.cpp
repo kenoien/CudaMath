@@ -150,6 +150,15 @@ int main() {
     checkWorkspaceCommands(engine);
     checkTimerMemoryAndVersion(engine);
     checkWorkspaceNames(engine);
+    {
+        auto& session = fresh(engine);
+        const auto summary = run(engine, session, "zeros(8, 9)");
+        const auto listed = run(engine, session, "print(zeros(8, 9))");
+        check(summary == "double 8x9\n", "large array is summarized", summary);
+        check(listed.find('\n') != std::string::npos && listed.find("double") == std::string::npos && listed.rfind("0", 0) == 0,
+              "print lists a large matrix", listed);
+        engine.destroySession(session);
+    }
     checkSuite(engine, "tests/smoke.cm");
     checkSuite(engine, "tests/commands.cm");
     checkSuite(engine, "tests/more.cm");

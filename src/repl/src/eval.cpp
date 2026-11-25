@@ -197,6 +197,10 @@ private:
         if (name == "ndims") return Value::scalar(DType::F64, 2);
         if (name == "isempty") return Value::scalar(DType::F64, args.at(0).empty() ? 1 : 0);
         if (name == "class") return Value::str(args.at(0).isString ? "char" : dtypeName(args[0].type));
+        if (name == "print" || name == "prn") {
+            if (args.size() != 1) throw EvalError(name + " needs one argument");
+            return Value::str(args[0].listed());
+        }
         if (name == "reshape") return reshape(args.at(0), positiveSize(args.at(1)), positiveSize(args.at(2)));
         if (name == "abs") return applyAbs(args.at(0));
         if (name == "sqrt") return applySqrt(args.at(0));
@@ -757,6 +761,13 @@ private:
         }
         if (eatWord("saveworkspace")) return saveWorkspace();
         if (eatWord("loadworkspace")) return loadWorkspace();
+        {
+            const std::size_t at = i_;
+            if (eatWord("save") && eat('(')) return saveData();
+            i_ = at;
+            if (eatWord("load") && eat('(')) return loadData();
+            i_ = at;
+        }
         if (eatWord("runtests")) return runFile(true);
         if (eatWord("run")) return runFile(false);
         if (eatWord("tests")) return testsBlock();
@@ -863,6 +874,149 @@ private:
         if (word == "on") session_.timer = true;
         else if (word == "off") session_.timer = false;
         return session_.timer ? "timer on" : "timer off";
+    }
+
+    bool dataPath(const std::string& path) const {
+        if (path.size() < 4) return false;
+        std::string ext = path.substr(path.size() - 4);
+        for (char& c : ext) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+        return ext == ".cma";
+    }
+
+    void writeOneVariable(std::ostream& file, std::ofstream& sidecar, std::uint64_t& sidecarAt, const std::string& path,
+                          const std::string& name, const Value& value) {
+        const auto bytes = static_cast<std::uint64_t>(value.numel()) * dtypeSize(value.type);
+        file << "{\"name\":\"" << name << "\",\"type\":\"" << dtypeName(value.type)
+             << "\",\"rows\":" << value.rows << ",\"cols\":" << value.cols << ',';
+        if (bytes > 1024ull * 1024ull) {
+            if (!sidecar.is_open()) {
+                sidecar.open(path + ".bin", std::ios::binary);
+                if (!sidecar) throw EvalError("could not write " + path + ".bin");
+            }
+            sidecar.write(static_cast<const char*>(value.data()), static_cast<std::streamsize>(bytes));
+            file << "\"sidecar\":{\"offset\":" << sidecarAt << ",\"length\":" << bytes << "}}";
+            sidecarAt += bytes;
+        } else {
+            file << "\"values\":[";
+            for (std::int64_t n = 0; n < value.numel(); ++n) {
+                if (n) file << ',';
+                file << value.get(n);
+            }
+            file << "]}";
+        }
+    }
+
+    std::string saveData() {
+        const std::string path = pathArgument();
+        if (!dataPath(path)) throw EvalError("save writes a .cma data file");
+        std::vector<std::string> names;
+        skip();
+        if (!eat(',')) throw EvalError("save needs variable names");
+        do {
+            names.push_back(ident());
+            skip();
+        } while (eat(','));
+        if (!eat(')')) throw EvalError("expected )");
+        std::vector<std::pair<std::string, Value>> saved;
+        for (const std::string& name : names) {
+            Value* found = lookup(name);
+            if (found == nullptr || found->isString) throw EvalError("undefined variable " + name);
+            saved.emplace_back(name, *found);
+        }
+        std::ofstream file(path, std::ios::binary);
+        if (!file) throw EvalError("could not write " + path);
+        file << "{\"version\":1,\"kind\":\"variables\",\"variables\":[";
+        std::ofstream sidecar;
+        std::uint64_t sidecarAt = 0;
+        for (std::size_t n = 0; n < saved.size(); ++n) {
+            if (n) file << ',';
+            writeOneVariable(file, sidecar, sidecarAt, path, saved[n].first, saved[n].second);
+        }
+        file << "]}";
+        return {};
+    }
+
+    std::string loadData() {
+        const std::string path = pathArgument();
+        if (!dataPath(path)) throw EvalError("load reads a .cma data file");
+        std::vector<std::string> only;
+        skip();
+        if (eat(',')) {
+            do {
+                only.push_back(ident());
+                skip();
+            } while (eat(','));
+        }
+        if (!eat(')')) throw EvalError("expected )");
+        std::ifstream file(path, std::ios::binary);
+        if (!file) throw EvalError("could not read " + path);
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        const std::string text = buffer.str();
+        if (text.find("\"kind\":\"variables\"") == std::string::npos) throw EvalError("not a .cma data file");
+        auto findNumber = [&](const std::string& key, std::size_t from) {
+            auto pos = text.find("\"" + key + "\":", from);
+            if (pos == std::string::npos) return 0.0;
+            pos = text.find_first_of("-0123456789", pos);
+            return std::stod(text.substr(pos));
+        };
+        std::map<std::string, Value> loaded;
+        std::size_t cursor = 0;
+        while ((cursor = text.find("\"name\":\"", cursor)) != std::string::npos) {
+            cursor += 8;
+            const auto nameEnd = text.find('"', cursor);
+            const std::string name = text.substr(cursor, nameEnd - cursor);
+            const auto nextName = text.find("\"name\":\"", nameEnd);
+            const std::size_t objectEnd = nextName == std::string::npos ? text.size() : nextName;
+            const auto typePos = text.find("\"type\":\"", nameEnd);
+            if (typePos == std::string::npos || typePos >= objectEnd) {
+                cursor = nameEnd;
+                continue;
+            }
+            const auto typeStart = typePos + 8;
+            const auto typeEnd = text.find('"', typeStart);
+            const std::string typeName = text.substr(typeStart, typeEnd - typeStart);
+            DType type = DType::F64;
+            if (typeName == "single") type = DType::F32;
+            if (typeName == "int32") type = DType::I32;
+            if (typeName == "int64") type = DType::I64;
+            const auto rows = static_cast<std::int64_t>(findNumber("rows", typeEnd));
+            const auto cols = static_cast<std::int64_t>(findNumber("cols", typeEnd));
+            Value value = Value::matrix(type, rows, cols);
+            const auto side = text.find("\"sidecar\"", typeEnd);
+            if (side != std::string::npos && side < objectEnd) {
+                const auto offset = static_cast<std::uint64_t>(findNumber("offset", side));
+                const auto length = static_cast<std::uint64_t>(findNumber("length", side));
+                std::ifstream bin(path + ".bin", std::ios::binary);
+                if (!bin) throw EvalError("could not read " + path + ".bin");
+                bin.seekg(static_cast<std::streamoff>(offset));
+                bin.read(static_cast<char*>(value.data()), static_cast<std::streamsize>(length));
+                if (!bin) throw EvalError("could not read " + path + ".bin");
+            } else {
+                auto values = text.find("\"values\":[", typeEnd);
+                values += 10;
+                for (std::int64_t n = 0; n < value.numel(); ++n) {
+                    values = text.find_first_of("-0123456789", values);
+                    std::size_t stop = values;
+                    while (stop < text.size() && (std::isdigit(static_cast<unsigned char>(text[stop])) || text[stop] == '-' || text[stop] == '.' || text[stop] == 'e' || text[stop] == 'E' || text[stop] == '+')) ++stop;
+                    value.set(n, std::stod(text.substr(values, stop - values)));
+                    values = stop;
+                }
+            }
+            loaded.emplace(name, std::move(value));
+            cursor = nameEnd;
+        }
+        const std::vector<std::string> chosen = only.empty() ? [&] {
+            std::vector<std::string> all;
+            for (const auto& entry : loaded) all.push_back(entry.first);
+            return all;
+        }() : only;
+        for (const std::string& name : chosen) {
+            auto it = loaded.find(name);
+            if (it == loaded.end()) throw EvalError("data file has no variable " + name);
+            assign(name, it->second);
+        }
+        return {};
     }
 
     std::string pathArgument() {
