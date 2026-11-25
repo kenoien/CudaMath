@@ -1,6 +1,6 @@
 # CudaMath
 
-CudaMath is a Windows math workspace for the NVIDIA N1X. A C++ engine owns the data and calls CUDA for the math. The user types a MATLAB-style language in a REPL. Two apps share that engine: a console app and a WinUI 3 split-pane app.
+CudaMath is a Windows math workspace for the NVIDIA N1X. A C++ engine owns the data and calls CUDA for the math. The user types a MATLAB-style language in a REPL. Two apps share that engine: a console app with one session, and a WinUI 3 window with one tab per session.
 
 The engine is a front end. Dense linear algebra goes to cuBLAS and cuSOLVER. Random arrays come from cuRAND. Elementwise and reduction math goes through small kernels that call the CUDA math API. The project does not reimplement those libraries.
 
@@ -9,14 +9,15 @@ The engine is a front end. Dense linear algebra goes to cuBLAS and cuSOLVER. Ran
 - Windows on ARM64, NVIDIA N1X only.
 - Unified memory only. Every numeric array is allocated with `cudaMallocManaged`.
 - Host and device use the same pointers. There is no explicit host/device copy of workspace data.
-- One CUDA context per process, owned by the engine.
+- One CUDA context per process, owned by the engine. A session never creates its own context.
+- The GUI holds one session per tab. The console app holds one session. Sessions do not share variables, user functions, or cuRAND state.
 
 Before either app opens a REPL, the engine checks that this process can use CUDA unified memory. The CUDA runtime is loaded dynamically, so a missing driver DLL takes the same path as a failed check. The check passes only when all of these are true:
 
 - The CUDA runtime initializes.
 - At least one CUDA device is present.
-- That device reports `cudaDevAttrManagedMemory`.
-- That device reports `cudaDevAttrConcurrentManagedAccess`, so host and device can use one `cudaMallocManaged` pointer without an explicit copy.
+- That device reports `cudaDevAttrManagedMemory`, so allocations can use `cudaMallocManaged`.
+- When a device also reports `cudaDevAttrConcurrentManagedAccess`, the engine selects it. The N1X Windows driver can report managed memory without concurrent access. That device is still accepted. The engine calls `cudaDeviceSynchronize` before the host reads results.
 
 If any step fails, the engine returns a short error and does not create a context. The text says that CudaMath requires an NVIDIA GPU with CUDA unified memory, and it includes the CUDA error string when the runtime provided one. There is no CPU fallback.
 
@@ -39,7 +40,7 @@ Tool chain on this machine:
 | CudaMathEngine | static lib | Values, unified memory, CUDA calls, random generator, workspace, saveworkspace/loadworkspace |
 | CudaMathRepl | static lib | MATLAB-style parser and interpreter |
 | CudaMathCli | console exe | REPL in a terminal |
-| CudaMathGui | WinUI 3 exe | REPL pane plus a pane of variables and functions |
+| CudaMathGui | WinUI 3 exe | One tab per session, each tab a REPL pane plus a pane of variables and functions |
 
 ## Numeric model
 
@@ -70,7 +71,8 @@ Statements:
 - `function` / `end` definitions, with zero or more output names and zero or more arguments
 - `if` / `elseif` / `else` / `end`
 - `for` / `end` and `while` / `end`
-- `test 'name'` / `end` blocks, which group `expect` checks
+- `tests 'name'` / `end tests` suite blocks in a script file
+- `test 'name'` / `end` blocks, which group `expect` checks inside a suite
 - `%` comments
 
 `if` and `while` do not use a bool type. A condition is true when the value is nonempty and every element is nonzero. An empty array is false. `&&` and `||` apply that test to scalars and stop at the first decisive operand. A `for` or `while` runs until its normal end. Version 1 has no `break`, `continue`, `return`, or `switch`, and a function returns by assigning its output names.
@@ -97,12 +99,13 @@ These run on the host. `saveworkspace` and `loadworkspace` are the serialization
 | `whos` | Name, type, and size of each variable, plus each user function |
 | `clear` | Remove one name, or the whole workspace when called with no arguments |
 | `clear functions` | Remove user functions and keep variables |
-| `saveworkspace path` | Write the workspace document, including variables, user functions, and the cuRAND seed |
-| `loadworkspace path` | Replace the workspace from a document |
+| `saveworkspace path` | Write a `.cmw` workspace file, including variables, user functions, and the cuRAND seed |
+| `loadworkspace path` | Replace the workspace from a `.cmw` file |
+| `run path` | Execute a `.cm` script in the current workspace |
 | `clc` | Clear the REPL output |
 | `expect(expected, actual)` | Compare `actual` with `expected` and record a pass or a fail. See Tests. |
 | `expect(expected, actual, tol)` | Same comparison with an explicit absolute tolerance |
-| `runtests path` | Run a test file in a scratch workspace and print the summary |
+| `runtests path` | Execute a `.cm` suite file in a scratch workspace. The file's `end tests` prints the summary |
 | `timer on` | Start reporting elapsed time after each REPL submission |
 | `timer off` | Stop reporting elapsed time |
 | `timer` | Print `timer on` or `timer off` |
@@ -149,7 +152,7 @@ These allocate unified memory and fill it on the host. They do not call cuBLAS.
 
 ### cuRAND
 
-The engine keeps one cuRAND Philox generator for the process. `rng` sets its seed. `rand`, `randn`, and `randi` allocate a unified-memory array and fill it on the device. Shape rules match `zeros`: one size argument builds a square matrix, so `rand(n,1)` is a column vector and `rand(1,n)` is a row vector. The default type is `double`. A trailing `'single'` or `'double'` selects the floating type.
+Each session keeps its own cuRAND Philox generator. `rng` sets the seed for the session that is running the command. `rand`, `randn`, and `randi` allocate a unified-memory array and fill it on the device. Shape rules match `zeros`: one size argument builds a square matrix, so `rand(n,1)` is a column vector and `rand(1,n)` is a row vector. The default type is `double`. A trailing `'single'` or `'double'` selects the floating type.
 
 These sequences are not bit-identical to MATLAB. MATLAB's default generator is Mersenne Twister; CudaMath uses cuRAND Philox.
 
@@ -226,16 +229,29 @@ Inputs are promoted to `single` or `double` as described above. Multiple outputs
 
 `chol` reports an error when the matrix is not positive definite. `eig` on a nonsymmetric matrix returns real eigenvalues only when they are real; a complex eigenvalue is an error in version 1 because there is no complex type.
 
+## Files
+
+CudaMath has two file types.
+
+| Extension | Role |
+|---|---|
+| `.cmw` | Workspace. Variables, user functions, and the cuRAND seed. Opening one replaces the session. |
+| `.cm` | Script. Source the REPL executes. It is not loaded as workspace data. |
+
+File > Open Workspace and File > Save Workspace accept only `.cmw`. `loadworkspace` and `saveworkspace` do too. File > Open Script accepts only `.cm`. A script that contains `tests` / `end tests` is run with `runtests`. Any other script is run with `run`. Neither file type is a Windows executable.
+
 ## Tests
 
-The test suite is a set of REPL scripts. A check names the value it expects, evaluates an expression, and prints a pass or a fail. The suite guards parsing, array shape, type rules, dispatch into cuBLAS, cuSOLVER, and cuRAND, and saveworkspace/loadworkspace. It does not try to certify the CUDA libraries themselves. A few reconstruction checks are enough to show that a call was wired to the right library.
+A suite is a `.cm` script. It starts with `tests 'name'` and ends with `end tests`. Each `test 'name'` / `end` block inside it is one named check. The suite guards parsing, array shape, type rules, dispatch into cuBLAS, cuSOLVER, and cuRAND, and saveworkspace/loadworkspace. It does not try to certify the CUDA libraries themselves. A few reconstruction checks are enough to show that a call was wired to the right library.
 
 ```
-test 'lu reconstructs'
-  A = [1 2 3; 4 5 6; 7 8 10];
-  [L,U,P] = lu(A);
-  expect(P * A, L * U, 1e-8);
-end
+tests 'smoke'
+  test 'lu reconstructs'
+    A = [1 2 3; 4 5 6; 7 8 10];
+    [L,U,P] = lu(A);
+    expect(P * A, L * U, 1e-8);
+  end
+end tests
 ```
 
 `expect` takes the expected value first and the expression under test second. The optional third argument is an absolute tolerance.
@@ -256,14 +272,24 @@ FAIL  lu reconstructs: max abs diff 1.4e-7, tol 1e-8
 
 The name on that line is the enclosing `test` block. An `expect` outside any block is named `expect`.
 
+`end tests` stops the suite clock and prints the summary. The clock covers the suite only, from `tests` through the last check, and it prints even when the session timer is off:
+
+```
+smoke
+Elapsed 12.345 ms
+3 passed, 0 failed
+```
+
+`ans` is the number of failures. A `.cm` file with no `tests` / `end tests` block is a script. `run 'file.cm'` executes a script in the current workspace. `runtests` rejects a file that is not a suite.
+
 `runtests 'tests/smoke.cm'` is the suite runner.
 
-- It snapshots the workspace and the cuRAND generator, then runs the file in an empty workspace.
-- It restores both after the file finishes, whether the suite passed or failed.
-- It prints one line per check, then `N passed, M failed`.
-- After the restore, `ans` is the number of failures.
+- It snapshots that session's workspace and cuRAND generator, then runs the file in an empty workspace for the same session. Other sessions are left alone.
+- It restores that session after the file finishes, whether the suite passed or failed.
+- The pass, fail, and suite lines come from `expect` and `end tests`, not from a second report by the runner.
+- After the restore, `ans` is still the number of failures.
 
-`CudaMathCli --runtests tests/smoke.cm` runs that command and exits. The process exit code is 0 when every check passed and 1 otherwise. The GUI has a Run tests action that sends the same command to the REPL and shows the summary in the REPL pane.
+`CudaMathCli --runtests tests/smoke.cm` runs that command and exits. The process exit code is 0 when every check passed and 1 otherwise. In the GUI, the same command is typed in the REPL. There is no Run menu.
 
 `tests/smoke.cm` is the version 1 suite. It covers:
 
@@ -278,7 +304,7 @@ The name on that line is the enclosing `test` block. An `expect` outside any blo
 
 ## Timing
 
-`timer on` and `timer off` switch a session flag. It starts off. The flag is not a workspace variable, and `saveworkspace` / `loadworkspace` do not change it.
+`timer on` and `timer off` switch the flag for the session that received the command. It starts off in each new session. The flag is not a workspace variable, and `saveworkspace` / `loadworkspace` do not change it.
 
 While the flag is on, the REPL times each submission. The clock starts when evaluation of that submission begins and stops after `cudaDeviceSynchronize`, so the number includes cuBLAS, cuSOLVER, cuRAND, and kernel time rather than only the launch. Printing the result is outside the clock. A submission that ends with `;` still prints the elapsed line. A submission that throws prints the error, then the elapsed line.
 
@@ -288,11 +314,11 @@ The report is one line after the result:
 Elapsed 12.345 ms
 ```
 
-`runtests` is one submission, so the suite gets one elapsed line for the whole file. Statements inside a `test` block or a user function do not print their own times. `timer on` and `timer off` themselves are not timed.
+`runtests` is one submission. When the session timer is on, the REPL prints one more `Elapsed` line for that whole submission after the suite summary. `end tests` has already printed the suite clock. Statements inside a `test` block or a user function do not print their own session-timer lines. `timer on` and `timer off` themselves are not timed.
 
 ## Serialization
 
-`saveworkspace` writes one workspace document. `loadworkspace` replaces the current workspace.
+`saveworkspace` writes one `.cmw` workspace file. `loadworkspace` replaces the current workspace from a `.cmw` file. A `.cm` script is never written by `saveworkspace`.
 
 The document records:
 
@@ -309,50 +335,53 @@ Small documents are JSON. Array values larger than 1 MiB are stored in a binary 
 
 `help` prints three sections and returns to the prompt:
 
-- **Commands.** One line each for `help`, `who`, `whos`, `clear`, `clear functions`, `saveworkspace`, `loadworkspace`, `clc`, `expect`, `runtests`, `timer on`, `timer off`, `timer`, `cudaversion`, `memory`, `exit`, and `quit`.
+- **Commands.** One line each for `help`, `who`, `whos`, `clear`, `clear functions`, `saveworkspace`, `loadworkspace`, `run`, `clc`, `expect`, `runtests`, `timer on`, `timer off`, `timer`, `cudaversion`, `memory`, `exit`, and `quit`.
 - **Types.** `double`, `single`, `int32`, and `int64`. A bare literal is `double`. Values are dense 2-D column-major arrays, and a scalar is 1-by-1.
 - **Functions.** One line each for the built-ins in this spec, in the same groups as the GUI help: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER.
 
 The Types and Functions text is the same text the GUI Help window uses.
 
+## Sessions
+
+A session holds the variables, user functions, cuRAND generator, `.cmw` path, unsaved-changes flag, timer flag, and REPL history. The console app has one session. The GUI has one session per tab. Creating a tab creates a session. Closing a tab frees that session's unified-memory arrays and discards its generator.
+
+The process has one CUDA context and one unified-memory pool. The engine runs one submission at a time. A command typed in a second tab waits until the running submission finishes, then runs. Tabs do not issue overlapping cuBLAS, cuSOLVER, cuRAND, or kernel calls.
+
 ## GUI app
 
-`CudaMathGui` runs the unified-memory check before it creates the main window. On failure it shows the error in a dialog, and the process exits when the dialog is dismissed. It does not open an empty workspace. On success it shows a WinUI 3 window with a menu bar and two panes:
+`CudaMathGui` runs the unified-memory check before it creates the main window. On failure it shows the error in a dialog, and the process exits when the dialog is dismissed. On success it shows a WinUI 3 window with a menu bar, a row of tabs, and a status bar. The window opens with one tab, an untitled empty session.
 
-- One pane is the REPL: input, history, and printed results
-- The other pane lists variables and user functions from the live workspace
+Each tab is one session and contains two panes:
 
-The variable list shows name, class, and size. Selecting a function shows its source. The list refreshes after each successful statement. The REPL commands `saveworkspace`, `loadworkspace`, `runtests`, `timer on`, and `timer off` stay available. The menu calls those same engine operations.
+- One pane is that session's REPL: input, history, and printed results
+- The other pane lists that session's variables and user functions
+
+The variable list shows name, class, and size. Selecting a function shows its source. The list refreshes after each successful statement in that session. The menu bar is File and Help. File commands apply to the active tab. `runtests`, `timer on`, and `timer off` are typed in that tab's REPL. Clicking the status-bar timer field toggles the active session's timer.
 
 ### Status bar
 
-The bottom of the window is a status bar with four fields, left to right. It refreshes after each successful statement, after `saveworkspace` and `loadworkspace`, and when the timer flag changes.
+The bottom of the window is one status bar for the active tab. Switching tabs shows that tab's file name, timer, and workspace usage. CUDA Free and the CUDA version stay as they are, because they belong to the process. Workspace used and CUDA Free refresh once when a REPL submission finishes, success or failure. That is the same moment the timer stops. A `for` loop, a `while` loop, a user function, and `runtests` are one submission, so the bar does not repaint on every inner statement. There is no background poll. `cudaMemGetInfo` runs only at that finish. The timer label also refreshes when its status-bar field is clicked.
 
 | Field | Visible text |
 |---|---|
-| Workspace | File name, or `Untitled` when the window has no path. A trailing `*` means unsaved changes. |
-| Timer | `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays in this field, for example `Timer on  12.345 ms`. Clicking this field sends `timer off` when the timer is on, and `timer on` when it is off. |
+| Workspace | Active tab's file name, or `Untitled` when that session has no path. A trailing `*` means that session has unsaved changes. |
+| Timer | Active session's `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays in this field, for example `Timer on  12.345 ms`. Clicking this field toggles the active session. |
 | Memory | `Workspace used 12.0 MB    CUDA Free 8192.0 MB` |
 | CUDA | The runtime version string that `cudaversion` returns, for example `CUDA 13.4`. |
 
-The memory labels are `Workspace used` and `CUDA Free`, each followed by a number in megabytes of 1024×1024 bytes, with one decimal place. Those are the workspace-byte and CUDA-free counts from `memory`, scaled into MB. CUDA total stays on the `memory` command.
+The memory labels are `Workspace used` and `CUDA Free`, each followed by a number in megabytes of 1024×1024 bytes, with one decimal place. Workspace used is the active session's arrays. CUDA Free is the shared unified pool. Both are the counts from `memory`, scaled into MB. CUDA total stays on the `memory` command. In a tab, `memory` reports that session's workspace bytes and the process CUDA total and free.
 
 ### File
 
 | Item | Action |
 |---|---|
-| Open Workspace | Pick a workspace document and `loadworkspace` it, replacing the current variables, user functions, and cuRAND stream. The chosen path becomes the current workspace path. |
-| Save Workspace | `saveworkspace` to the current workspace path. If the window has no current path yet, ask for one first. |
-| Exit | Close the window and leave the process. |
+| New Workspace | Open a tab on a new empty session. |
+| Open Workspace | Pick a `.cmw` file and open it in a new tab. If the active tab is an untitled session with no variables, no user functions, and no unsaved changes, load the file into that tab instead. |
+| Save Workspace | `saveworkspace` for the active session. If that session has no path yet, ask for one and require the `.cmw` extension. |
+| Open Script | Pick a `.cm` file and execute it in the active tab. Output appears in that tab's REPL. A file that contains `tests` / `end tests` is executed with `runtests`, so that session is restored afterward. Any other script is executed with `run` in that session. |
+| Exit | Close every tab and leave the process. |
 
-Open Workspace and Exit ask for confirmation when the session has changes that have not been saved. Cancel leaves the session as it is. A successful save clears that dirty flag. Closing the window with the title-bar button takes the same path as Exit. REPL `loadworkspace` and `saveworkspace` update the same current path and dirty flag.
-
-### Run
-
-| Item | Action |
-|---|---|
-| Run Tests | Execute `runtests 'tests/smoke.cm'` and print the pass and fail lines in the REPL pane. |
-| Timer | Checkable item. Checked sends `timer on`. Unchecked sends `timer off`. The check mark follows the session flag, including after a click on the status-bar timer field. |
+Closing a tab asks for confirmation when that session has unsaved changes. Cancel leaves the tab open. Exit, and the title-bar close button, ask once for each dirty session. A successful save clears that session's dirty flag. REPL `loadworkspace` in a tab replaces that session and sets its path. The tab title is the file name, or `Untitled`. A `*` on the tab title means unsaved changes.
 
 ### Help
 
@@ -363,9 +392,9 @@ Open Workspace and Exit ask for confirmation when the session has changes that h
 
 The help window is a short document stored in the app, with three sections:
 
-- **App.** What CudaMath is, the REPL, the variable pane, the timer, tests, and workspace files.
+- **App.** What CudaMath is, the REPL, tabs and sessions, the variable pane, the timer, tests, and workspace files.
 - **Types.** `double`, `single`, `int32`, and `int64`. A bare literal is `double`. Values are dense 2-D column-major arrays, and a scalar is 1-by-1.
-- **Functions.** One line each for the built-ins in this spec, in the same groups: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER. Include `expect`, `runtests`, `timer`, `help`, `cudaversion`, and `memory`. The Types and Functions text is shared with the console `help` command.
+- **Functions.** One line each for the built-ins in this spec, in the same groups: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER. Include `expect`, `run`, `runtests`, `timer`, `help`, `cudaversion`, and `memory`. The Types and Functions text is shared with the console `help` command.
 
 About shows the application name, the version, the line "Windows ARM64 for the NVIDIA N1X", the CUDA toolkit version the app was built with, and a one-line description: a MATLAB-style REPL that calls the CUDA math libraries.
 

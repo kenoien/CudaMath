@@ -1,0 +1,16 @@
+tests 'smoke'
+  test 'zeros and eye'
+    expect(zeros(2), [0 0; 0 0])
+    expect(eye(2), [1 0; 0 1])
+    expect(size(eye(3)), [3 3])
+  end
+  test 'int32 addition'
+    expect(int32(3) + int32(4), int32(7))
+  end
+  test 'user function'
+    function y = twice(x)
+      y = x + x
+    end
+    expect(twice(3), 6)
+  end
+end tests

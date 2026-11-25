@@ -1,0 +1,42 @@
+<Window
+    x:Class="CudaMathGui.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <MenuBar>
+            <MenuBarItem Title="File">
+                <MenuFlyoutItem Text="New Workspace" Click="NewWorkspaceClick"/>
+                <MenuFlyoutItem Text="Open Workspace" Click="OpenWorkspaceClick"/>
+                <MenuFlyoutItem Text="Save Workspace" Click="SaveWorkspaceClick"/>
+                <MenuFlyoutItem Text="Open Script" Click="OpenScriptClick"/>
+                <MenuFlyoutSeparator/>
+                <MenuFlyoutItem Text="Exit" Click="ExitClick"/>
+            </MenuBarItem>
+            <MenuBarItem Title="Help">
+                <MenuFlyoutItem Text="Help" Click="HelpClick"/>
+                <MenuFlyoutItem Text="About" Click="AboutClick"/>
+            </MenuBarItem>
+        </MenuBar>
+        <TabView x:Name="Sessions" Grid.Row="1" IsAddTabButtonVisible="False"
+                 HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"
+                 HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                 TabCloseRequested="TabCloseRequested" SelectionChanged="SessionChanged"/>
+        <Grid Grid.Row="2" Padding="12,6" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="WorkspaceStatus" VerticalAlignment="Center"/>
+            <Button x:Name="TimerStatus" Grid.Column="1" Click="TimerClick" Background="Transparent"/>
+            <TextBlock x:Name="MemoryStatus" Grid.Column="2" VerticalAlignment="Center"/>
+            <TextBlock x:Name="CudaStatus" Grid.Column="3" VerticalAlignment="Center"/>
+        </Grid>
+    </Grid>
+</Window>

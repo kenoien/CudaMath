@@ -1,0 +1,9 @@
+target/
+src/**/ARM64/
+*.user
+*.suo
+.vs/
+packages/
+obj/
+Generated Files/
+tests/_out/

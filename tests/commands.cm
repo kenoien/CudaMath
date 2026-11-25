@@ -1,0 +1,247 @@
+tests 'commands'
+  test 'construction'
+    expect(class(zeros(2, 3)), 'double')
+    expect(class(zeros(2, 3, 'single')), 'single')
+    expect(class(zeros(2, 3, 'int32')), 'int32')
+    expect(class(zeros(2, 3, 'int64')), 'int64')
+    expect(class(ones(2, 'double')), 'double')
+    expect(class(ones(2, 'single')), 'single')
+    expect(class(ones(2, 'int32')), 'int32')
+    expect(class(ones(2, 'int64')), 'int64')
+    expect(class(eye(2)), 'double')
+    expect(class(eye(2, 'single')), 'single')
+    expect(class(eye(2, 'int32')), 'int32')
+    expect(class(eye(2, 'int64')), 'int64')
+    expect(sum(zeros(2, 3)), 0)
+    expect(sum(zeros(2, 3, 'single')), 0)
+    expect(sum(zeros(2, 3, 'int32')), int32(0))
+    expect(sum(zeros(2, 3, 'int64')), int64(0))
+    expect(sum(ones(2, 2)), 4)
+    expect(sum(ones(2, 2, 'single')), 4)
+    expect(sum(ones(2, 2, 'int32')), int32(4))
+    expect(sum(ones(2, 2, 'int64')), int64(4))
+    expect(eye(2), [1 0; 0 1])
+    expect(eye(2, 'single'), single([1 0; 0 1]))
+    expect(eye(2, 'int32'), int32([1 0; 0 1]))
+    expect(eye(2, 'int64'), int64([1 0; 0 1]))
+    expect(size(zeros(2, 5, 'int32')), [2 5])
+    expect(size(ones(2, 5, 'single'), 1), 2)
+    expect(size(ones(2, 5, 'int64'), 2), 5)
+    expect(numel(eye(3, 'int32')), 9)
+    expect(length(zeros(2, 5, 'single')), 5)
+    expect(ndims(ones(1, 'int64')), 2)
+    expect(isempty(zeros(0, 1)), 1)
+    expect(isempty(zeros(0, 1, 'single')), 1)
+    expect(isempty(zeros(0, 1, 'int32')), 1)
+    expect(isempty(zeros(0, 1, 'int64')), 1)
+    expect(isempty(ones(1)), 0)
+    expect(isempty(ones(1, 'single')), 0)
+    expect(isempty(ones(1, 'int32')), 0)
+    expect(isempty(ones(1, 'int64')), 0)
+  end
+
+  test 'double arithmetic'
+    a = [1 2; 3 4]
+    expect(class(a), 'double')
+    expect(a + a, [2 4; 6 8])
+    expect(a - 1, [0 1; 2 3])
+    expect(a .* 2, [2 4; 6 8])
+    expect(a ./ 2, [0.5 1; 1.5 2])
+    expect(a * eye(2), a)
+    expect(a', [1 3; 2 4])
+    expect(-a, [-1, -2; -3, -4])
+    expect(abs(a), a)
+    expect(abs([-2 3]), [2 3])
+    expect(sqrt([4 9]), [2 3])
+    expect(sum(a), 10)
+    expect(reshape(a, 4, 1), [1; 3; 2; 4])
+    expect(a == a, ones(2))
+    expect(a ~= a, zeros(2))
+    expect(a > 2, [0 0; 1 1])
+    expect(a >= 2, [0 1; 1 1])
+    expect(a < 2, [1 0; 0 0])
+    expect(a <= 2, [1 1; 0 0])
+    expect(class(single(a)), 'single')
+    expect(class(int32(a)), 'int32')
+    expect(class(int64(a)), 'int64')
+    expect(double(single(a)), a)
+  end
+
+  test 'single arithmetic'
+    a = single([1 2; 3 4])
+    expect(class(a), 'single')
+    expect(a + a, single([2 4; 6 8]))
+    expect(a - single(1), single([0 1; 2 3]))
+    expect(a .* single(2), single([2 4; 6 8]))
+    expect(a ./ single(2), [0.5 1; 1.5 2])
+    expect(a * eye(2, 'single'), a)
+    expect(a', single([1 3; 2 4]))
+    expect(-a, single([-1, -2; -3, -4]))
+    expect(abs(a), [1 2; 3 4])
+    expect(sqrt(single([4 9])), [2 3])
+    expect(sum(a), 10)
+    expect(reshape(a, 1, 4), single([1 3 2 4]))
+    expect(a == a, ones(2))
+    expect(a ~= a, zeros(2))
+    expect(class(double(a)), 'double')
+    expect(class(int32(a)), 'int32')
+    expect(class(int64(a)), 'int64')
+    expect(single(double(a)), a)
+  end
+
+  test 'int32 arithmetic'
+    a = int32([1 2; 3 4])
+    expect(class(a), 'int32')
+    expect(a + a, int32([2 4; 6 8]))
+    expect(a - int32(1), int32([0 1; 2 3]))
+    expect(a .* int32(2), int32([2 4; 6 8]))
+    expect(a ./ int32(2), [0.5 1; 1.5 2])
+    expect(a * a, [7 10; 15 22])
+    expect(a', int32([1 3; 2 4]))
+    expect(-a, int32([-1, -2; -3, -4]))
+    expect(abs(int32([-2 3])), [2 3])
+    expect(sqrt(int32([4 9])), [2 3])
+    expect(sum(a), int32(10))
+    expect(reshape(a, 4, 1), int32([1; 3; 2; 4]))
+    expect(a == a, ones(2))
+    expect(a ~= a, zeros(2))
+    expect(a > int32(2), [0 0; 1 1])
+    expect(class(double(a)), 'double')
+    expect(class(single(a)), 'single')
+    expect(class(int64(a)), 'int64')
+    expect(int32(double(a)), a)
+  end
+
+  test 'int64 arithmetic'
+    a = int64([1 2; 3 4])
+    expect(class(a), 'int64')
+    expect(a + a, int64([2 4; 6 8]))
+    expect(a - int64(1), int64([0 1; 2 3]))
+    expect(a .* int64(2), int64([2 4; 6 8]))
+    expect(a ./ int64(2), [0.5 1; 1.5 2])
+    expect(a * a, [7 10; 15 22])
+    expect(a', int64([1 3; 2 4]))
+    expect(-int64(3), int64(-3))
+    expect(abs(int64([-2 3])), [2 3])
+    expect(sqrt(int64([4 9])), [2 3])
+    expect(sum(a), int64(10))
+    expect(reshape(a, 4, 1), int64([1; 3; 2; 4]))
+    expect(a == a, ones(2))
+    expect(a < int64(3), [1 1; 0 0])
+    expect(class(double(a)), 'double')
+    expect(class(single(a)), 'single')
+    expect(class(int32(a)), 'int32')
+    expect(int64(int32(a)), a)
+  end
+
+  test 'random'
+    rng(1)
+    expect(rng(), 1)
+    r = rand(2, 2)
+    expect(class(r), 'double')
+    expect(size(r), [2 2])
+    expect(r > 0, ones(2))
+    expect(r <= 1, ones(2))
+    s = rand(2, 2, 'single')
+    expect(class(s), 'single')
+    expect(size(s), [2 2])
+    expect(s > 0, ones(2))
+    expect(s <= 1, ones(2))
+    expect(class(rand(1, 2, 'int32')), 'double')
+    expect(class(rand(1, 2, 'int64')), 'double')
+    n = randn(1, 4)
+    expect(class(n), 'double')
+    expect(size(n), [1 4])
+    ns = randn(3, 1, 'single')
+    expect(class(ns), 'single')
+    expect(size(ns), [3 1])
+    expect(rng(), 1)
+  end
+
+  test 'control flow'
+    total = int32(0)
+    for k = 1:4
+      total = total + int32(k)
+    end
+    expect(total, int32(10))
+    n = 0
+    while n < 3
+      n = n + 1
+    end
+    expect(n, 3)
+    flag = 0
+    if ones(1, 'single')
+      flag = 1
+    end
+    expect(flag, 1)
+    if zeros(1, 'int64')
+      flag = 0
+    end
+    expect(flag, 1)
+    function y = addtwo(x)
+      y = x + x
+    end
+    expect(addtwo(2.5), 5)
+    expect(addtwo(single(1.5)), single(3))
+    expect(addtwo(int32(4)), int32(8))
+    expect(addtwo(int64(5)), int64(10))
+  end
+
+  test 'commands'
+    timer off
+    expect(ans, 'timer off')
+    timer
+    expect(ans, 'timer off')
+    timer on
+    expect(ans, 'timer on')
+    timer off
+    expect(ans, 'timer off')
+    cudaversion
+    expect(class(ans), 'char')
+    memory
+    measured = ans
+    expect(class(measured), 'double')
+    expect(size(measured), [3 1])
+    expect(sum(measured) > 0, 1)
+    clear
+    x = int64(5)
+    who
+    expect(class(ans), 'char')
+    whos
+    expect(class(ans), 'char')
+    clear x
+    who
+    expect(class(ans), 'char')
+  end
+
+  test 'run script'
+    added = 2.25
+    run 'tests/addone.cm'
+    expect(added, 4.5)
+    added = single(1.5)
+    run 'tests/addone.cm'
+    expect(added, single(3))
+    added = int32(4)
+    run 'tests/addone.cm'
+    expect(added, int32(8))
+    added = int64(8)
+    run 'tests/addone.cm'
+    expect(added, int64(16))
+  end
+
+  test 'save and load'
+    clear
+    kept = int32([1 2; 3 4])
+    function y = twice(x)
+      y = x + x
+    end
+    saveworkspace 'tests/_out/roundtrip.cmw'
+    clear
+    loadworkspace 'tests/_out/roundtrip.cmw'
+    expect(kept, int32([1 2; 3 4]))
+    expect(twice(2.5), 5)
+    expect(twice(single(2)), single(4))
+    expect(twice(int32(4)), int32(8))
+    expect(twice(int64(3)), int64(6))
+  end
+end tests
