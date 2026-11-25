@@ -8,6 +8,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CudaMathRepl", "src\repl\Cu
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CudaMathCli", "src\cli\CudaMathCli.vcxproj", "{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E03}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CudaMathGui", "src\gui\CudaMathGui.vcxproj", "{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E04}"
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "CudaMathTests", "src\tests\CudaMathTests.vcxproj", "{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E05}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|ARM64 = Debug|ARM64
@@ -26,6 +30,14 @@ Global
 		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E03}.Debug|ARM64.Build.0 = Debug|ARM64
 		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E03}.Release|ARM64.ActiveCfg = Release|ARM64
 		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E03}.Release|ARM64.Build.0 = Release|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E04}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E04}.Debug|ARM64.Build.0 = Debug|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E04}.Release|ARM64.ActiveCfg = Release|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E04}.Release|ARM64.Build.0 = Release|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E05}.Debug|ARM64.ActiveCfg = Debug|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E05}.Debug|ARM64.Build.0 = Debug|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E05}.Release|ARM64.ActiveCfg = Release|ARM64
+		{C3A1E5B1-7D24-4F0A-9B11-0A1B2C3D4E05}.Release|ARM64.Build.0 = Release|ARM64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

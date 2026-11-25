@@ -1,11 +1,35 @@
 #include "cudamath/repl.hpp"
 
+#include <cctype>
 #include <sstream>
 
 namespace cudamath {
 
+namespace {
+
+const char* kTypes =
+    "Types\n"
+    "  double, single, int32, int64\n"
+    "  A bare literal is double. Values are dense 2-D column-major arrays. A scalar is 1-by-1.\n"
+    "  There is no logical type. A condition is true when it is nonempty and every element is nonzero.\n"
+    "\n";
+
+const char* kFunctions =
+    "Functions\n"
+    "  zeros, ones, eye, size, numel, length, ndims, isempty, class\n"
+    "  double, single, int32, int64, reshape\n"
+    "  rng, rand, randn\n"
+    "  abs, sqrt, sum\n"
+    "  Operators + - .* ./ * ' and comparisons\n"
+    "  function/end, if/end, for/end, while/end\n"
+    "  tests/end tests and test/end group expect checks\n"
+    "\n"
+    "Workspace files use .cmw. Scripts and suites use .cm.\n";
+
+}  // namespace
+
 std::string helpText() {
-    return
+    return std::string(
         "Commands\n"
         "  help                 commands, types, and functions\n"
         "  who                  list defined names\n"
@@ -23,22 +47,20 @@ std::string helpText() {
         "  cudaversion          CUDA runtime version\n"
         "  memory               workspace bytes, CUDA total, and CUDA free\n"
         "  exit, quit           leave the console process\n"
-        "\n"
-        "Types\n"
-        "  double, single, int32, int64\n"
-        "  A bare literal is double. Values are dense 2-D column-major arrays. A scalar is 1-by-1.\n"
-        "  There is no logical type. A condition is true when it is nonempty and every element is nonzero.\n"
-        "\n"
-        "Functions\n"
-        "  zeros, ones, eye, size, numel, length, ndims, isempty, class\n"
-        "  double, single, int32, int64, reshape\n"
-        "  rng, rand, randn\n"
-        "  abs, sqrt, sum\n"
-        "  Operators + - .* ./ * ' and comparisons\n"
-        "  function/end, if/end, for/end, while/end\n"
-        "  tests/end tests and test/end group expect checks\n"
-        "\n"
-        "Workspace files use .cmw. Scripts and suites use .cm.\n";
+        "\n") + kTypes + kFunctions;
+}
+
+std::string helpDocument() {
+    return std::string(
+        "App\n"
+        "  CudaMath is a MATLAB-style REPL that calls the CUDA math libraries.\n"
+        "  The console has one session. The window has one session per tab.\n"
+        "  Each tab has a REPL and a list of that session's variables and user functions.\n"
+        "  Selecting a function shows its source.\n"
+        "  The status bar shows the workspace name, the timer, workspace memory, and the CUDA version.\n"
+        "  Click the timer field to turn the timer on or off.\n"
+        "  A tests/end tests file is a suite. Workspace files use .cmw. Scripts use .cm.\n"
+        "\n") + kTypes + kFunctions;
 }
 
 std::string statusWorkspace(const Session& session) {
@@ -87,17 +109,27 @@ bool submissionIsOpen(std::string_view input) {
     };
     bool comment = false;
     bool quote = false;
+    char last = '\0';
+    bool space = true;
     for (char c : input) {
         if (c == '\n') comment = false;
         if (!quote && c == '\'') {
             flush();
-            quote = true;
+            const bool transpose = !space &&
+                (std::isalnum(static_cast<unsigned char>(last)) || last == '_' || last == ')' || last == ']' || last == '.');
+            last = '\'';
+            space = false;
+            if (!transpose) quote = true;
             continue;
         }
         if (quote) {
             if (c == '\'') quote = false;
+            last = c;
+            space = false;
             continue;
         }
+        space = std::isspace(static_cast<unsigned char>(c)) != 0;
+        if (!space) last = c;
         if (comment) continue;
         if (c == '%') {
             flush();

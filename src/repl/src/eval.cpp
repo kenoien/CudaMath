@@ -217,7 +217,13 @@ private:
             if (session_.inSuite) ++session_.suiteFails;
             return Value::str("FAIL  " + name + ": " + why);
         };
-        if (expected.isString || actual.isString) return fail("class mismatch");
+        if (expected.isString || actual.isString) {
+            if (expected.isString && actual.isString && expected.text == actual.text) {
+                if (session_.inSuite) ++session_.suitePasses;
+                return Value::str("PASS  " + name);
+            }
+            return fail(expected.isString && actual.isString ? "value mismatch" : "class mismatch");
+        }
         if (expected.type != actual.type) return fail("class mismatch");
         if (expected.rows != actual.rows || expected.cols != actual.cols) return fail("size mismatch");
         double limit = tol;
@@ -400,15 +406,15 @@ private:
     Value parseCompare() {
         Value left = parseColon();
         skip();
+        const char first = peek();
+        if (first != '=' && first != '~' && first != '<' && first != '>') return left;
         const std::size_t mark = i_;
-        std::string op;
-        if (eat('=') && eat('=')) op = "==";
-        else if (eat('~') && eat('=')) op = "~=";
-        else if (eat('<') && eat('=')) op = "<=";
-        else if (eat('>') && eat('=')) op = ">=";
-        else if (eat('<')) op = "<";
-        else if (eat('>')) op = ">";
-        else {
+        ++i_;
+        std::string op(1, first);
+        if (peek() == '=') {
+            op.push_back('=');
+            ++i_;
+        } else if (first == '=' || first == '~') {
             i_ = mark;
             return left;
         }
@@ -455,15 +461,20 @@ private:
         std::string body;
         while (!done() && depth > 0) {
             if (peek() == '\'') {
-                body.push_back(peek());
+                const char previous = i_ == 0 ? '\0' : source_[i_ - 1];
+                const bool transpose = !std::isspace(static_cast<unsigned char>(previous)) &&
+                    (std::isalnum(static_cast<unsigned char>(previous)) || previous == '_' || previous == ')' || previous == ']' || previous == '.');
+                body.push_back('\'');
                 ++i_;
-                while (!done() && peek() != '\'') {
-                    body.push_back(peek());
-                    ++i_;
-                }
-                if (!done()) {
-                    body.push_back(peek());
-                    ++i_;
+                if (!transpose) {
+                    while (!done() && peek() != '\'') {
+                        body.push_back(peek());
+                        ++i_;
+                    }
+                    if (!done()) {
+                        body.push_back(peek());
+                        ++i_;
+                    }
                 }
                 continue;
             }
@@ -507,13 +518,13 @@ private:
 
     std::string statement(std::ostringstream& printed) {
         skip();
-        if (eatWord("help")) return helpText();
-        if (eatWord("who")) return who();
-        if (eatWord("whos")) return whos();
+        if (eatWord("help")) return answerText(helpText());
+        if (eatWord("who")) return answerText(who());
+        if (eatWord("whos")) return answerText(whos());
         if (eatWord("clear")) return clearCommand();
         if (eatWord("clc")) return "\x01";
         if (eatWord("exit") || eatWord("quit")) return "\x02";
-        if (eatWord("timer")) return timerCommand();
+        if (eatWord("timer")) return answerText(timerCommand());
         if (eatWord("memory")) {
             MemoryInfo info = Engine::instance().memory(session_);
             assign("ans", Value::matrix(DType::F64, 3, 1));
@@ -556,6 +567,11 @@ private:
         return value.format();
     }
 
+    std::string answerText(std::string text) {
+        assign("ans", Value::str(text));
+        return text;
+    }
+
     std::string who() const {
         std::ostringstream out;
         for (const auto& entry : session_.vars) out << entry.first << '\n';
@@ -569,29 +585,40 @@ private:
         return out.str();
     }
 
+    std::string restOfLine() {
+        std::string word;
+        while (peek() == ' ' || peek() == '\t') ++i_;
+        while (std::isalpha(static_cast<unsigned char>(peek()))) {
+            char c = peek();
+            if (c >= 'A' && c <= 'Z') c = static_cast<char>(c - 'A' + 'a');
+            word.push_back(c);
+            ++i_;
+        }
+        return word;
+    }
+
     std::string clearCommand() {
-        skip();
-        if (eatWord("functions")) {
+        const std::string word = restOfLine();
+        if (word == "functions") {
             session_.functions.clear();
             return {};
         }
-        if (done() || peek() == ';' || peek() == '\n') {
+        if (word.empty()) {
             session_.vars.clear();
             session_.functions.clear();
             session_.dirty = true;
             return {};
         }
-        const std::string name = ident();
-        session_.vars.erase(name);
-        session_.functions.erase(name);
+        session_.vars.erase(word);
+        session_.functions.erase(word);
         session_.dirty = true;
         return {};
     }
 
     std::string timerCommand() {
-        skip();
-        if (eatWord("on")) session_.timer = true;
-        else if (eatWord("off")) session_.timer = false;
+        const std::string word = restOfLine();
+        if (word == "on") session_.timer = true;
+        else if (word == "off") session_.timer = false;
         return session_.timer ? "timer on" : "timer off";
     }
 
@@ -630,7 +657,17 @@ private:
         for (const auto& entry : session_.functions) {
             if (!first) file << ',';
             first = false;
-            file << "{\"name\":\"" << entry.second.name << "\",\"body\":\"";
+            file << "{\"name\":\"" << entry.second.name << "\",\"outputs\":[";
+            for (std::size_t n = 0; n < entry.second.outputs.size(); ++n) {
+                if (n) file << ',';
+                file << '"' << entry.second.outputs[n] << '"';
+            }
+            file << "],\"args\":[";
+            for (std::size_t n = 0; n < entry.second.args.size(); ++n) {
+                if (n) file << ',';
+                file << '"' << entry.second.args[n] << '"';
+            }
+            file << "],\"body\":\"";
             for (char c : entry.second.body) {
                 if (c == '"' || c == '\\') file << '\\';
                 if (c == '\n') file << "\\n";
@@ -662,14 +699,56 @@ private:
         };
         session_.rngSeed = static_cast<std::uint64_t>(findNumber("seed", 0));
         session_.rngDrawn = static_cast<std::uint64_t>(findNumber("drawn", 0));
+        auto jsonString = [&](const std::string& key, std::size_t from, std::size_t until) {
+            const auto keyAt = text.find("\"" + key + "\":\"", from);
+            if (keyAt == std::string::npos || keyAt >= until) return std::string{};
+            std::size_t pos = keyAt + key.size() + 4;
+            std::string out;
+            while (pos < until && text[pos] != '"') {
+                if (text[pos] == '\\' && pos + 1 < until) {
+                    const char next = text[++pos];
+                    out.push_back(next == 'n' ? '\n' : next);
+                } else {
+                    out.push_back(text[pos]);
+                }
+                ++pos;
+            }
+            return out;
+        };
+        auto jsonNames = [&](const std::string& key, std::size_t from, std::size_t until) {
+            std::vector<std::string> names;
+            const auto keyAt = text.find("\"" + key + "\":[", from);
+            if (keyAt == std::string::npos || keyAt >= until) return names;
+            std::size_t pos = keyAt + key.size() + 3;
+            const auto end = text.find(']', pos);
+            if (end == std::string::npos || end > until) return names;
+            while (pos < end) {
+                const auto quote = text.find('"', pos);
+                if (quote == std::string::npos || quote >= end) break;
+                const auto close = text.find('"', quote + 1);
+                if (close == std::string::npos || close > end) break;
+                names.push_back(text.substr(quote + 1, close - quote - 1));
+                pos = close + 1;
+            }
+            return names;
+        };
         std::size_t cursor = 0;
         while ((cursor = text.find("\"name\":\"", cursor)) != std::string::npos) {
             cursor += 8;
             const auto nameEnd = text.find('"', cursor);
             const std::string name = text.substr(cursor, nameEnd - cursor);
+            const auto nextName = text.find("\"name\":\"", nameEnd);
+            const std::size_t objectEnd = nextName == std::string::npos ? text.size() : nextName;
             const auto typePos = text.find("\"type\":\"", nameEnd);
             const bool isFunction = text.find("\"body\"", nameEnd) < text.find("\"values\"", nameEnd);
-            if (!isFunction && typePos != std::string::npos) {
+            if (isFunction) {
+                UserFunction fn;
+                fn.name = name;
+                fn.outputs = jsonNames("outputs", nameEnd, objectEnd);
+                fn.args = jsonNames("args", nameEnd, objectEnd);
+                fn.body = jsonString("body", nameEnd, objectEnd);
+                session_.functions[fn.name] = std::move(fn);
+            } else if (typePos != std::string::npos && typePos < objectEnd) {
                 const auto typeStart = typePos + 8;
                 const auto typeEnd = text.find('"', typeStart);
                 const std::string typeName = text.substr(typeStart, typeEnd - typeStart);
@@ -888,9 +967,13 @@ ExecResult execute(Engine& engine, Session& session, std::string_view input) {
     ExecResult result = executeUnlocked(session, input);
     cudaDeviceSynchronize();
     const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - start).count();
-    session.lastElapsedMs = ms;
+    std::size_t timerAt = 0;
+    while (timerAt < input.size() && std::isspace(static_cast<unsigned char>(input[timerAt]))) ++timerAt;
+    const bool timerCommand = input.substr(timerAt).starts_with("timer") &&
+        (timerAt + 5 >= input.size() || !std::isalnum(static_cast<unsigned char>(input[timerAt + 5])));
+    if (!timerCommand) session.lastElapsedMs = ms;
     result.elapsedMs = ms;
-    result.showElapsed = session.timer && !result.incomplete;
+    result.showElapsed = session.timer && !result.incomplete && !timerCommand;
     if (result.showElapsed) {
         std::ostringstream line;
         line.setf(std::ios::fixed);

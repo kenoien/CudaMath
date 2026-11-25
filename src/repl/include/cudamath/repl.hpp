@@ -25,6 +25,7 @@ ExecResult execute(Engine& engine, Session& session, std::string_view input);
 bool submissionIsOpen(std::string_view input);
 
 std::string helpText();
+std::string helpDocument();
 std::string statusMemory(const Session& session);
 std::string statusTimer(const Session& session);
 std::string statusWorkspace(const Session& session);
