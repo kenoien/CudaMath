@@ -40,6 +40,7 @@ struct Value {
     double get(std::int64_t index) const;
     void set(std::int64_t index, double number);
     std::string format() const;
+    std::string listed() const;
     std::string whosLine(const std::string& name) const;
 };
 

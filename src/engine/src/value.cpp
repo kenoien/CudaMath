@@ -119,29 +119,37 @@ void Value::set(std::int64_t index, double number) {
     }
 }
 
-std::string Value::format() const {
-    if (isString) {
-        return text;
+std::string renderElements(const Value& value, bool listAll) {
+    if (value.isString) {
+        return value.text;
     }
-    if (empty()) {
+    if (value.empty()) {
         return "[]";
     }
-    if (numel() > 64) {
-        return dtypeName(type) + std::string(" ") + std::to_string(rows) + "x" + std::to_string(cols);
+    if (!listAll && value.numel() > 64) {
+        return std::string(dtypeName(value.type)) + " " + std::to_string(value.rows) + "x" + std::to_string(value.cols);
     }
     std::ostringstream out;
-    for (std::int64_t row = 0; row < rows; ++row) {
+    for (std::int64_t row = 0; row < value.rows; ++row) {
         if (row > 0) {
             out << '\n';
         }
-        for (std::int64_t col = 0; col < cols; ++col) {
+        for (std::int64_t col = 0; col < value.cols; ++col) {
             if (col > 0) {
                 out << ' ';
             }
-            out << trimNumber(get(col * rows + row));
+            out << trimNumber(value.get(col * value.rows + row));
         }
     }
     return out.str();
+}
+
+std::string Value::format() const {
+    return renderElements(*this, false);
+}
+
+std::string Value::listed() const {
+    return renderElements(*this, true);
 }
 
 std::string Value::whosLine(const std::string& name) const {

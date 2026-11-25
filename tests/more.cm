@@ -73,6 +73,13 @@ tests 'more'
     expect(randi(1, 2, 2), ones(2))
   end
 
+  test 'print'
+    expect(print([1 2 3]), '1 2 3')
+    expect(prn(int32([4; 5])), '4
+5')
+    expect(class(print(zeros(8, 9))), 'char')
+  end
+
   test 'two outputs'
     function [y, z] = both(x)
       y = x + 1

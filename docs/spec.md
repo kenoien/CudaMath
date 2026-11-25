@@ -101,6 +101,8 @@ These run on the host. `saveworkspace` and `loadworkspace` are the serialization
 | `clear functions` | Remove user functions and keep variables |
 | `saveworkspace path` | Write a `.cmw` workspace file, including variables, user functions, and the cuRAND seed |
 | `loadworkspace path` | Replace the workspace from a `.cmw` file |
+| `save(path, a, b, ...)` | Write the named variables to a `.cma` data file, as in `save('picked.cma', a, b, c, d)`. The file holds those names and values only. |
+| `load(path)` | Assign every variable stored in a `.cma` file. Other variables, user functions, and the cuRAND seed stay. `load(path, a, b)` assigns only the names given. |
 | `run path` | Execute a `.cm` script in the current workspace |
 | `clc` | Clear the REPL output |
 | `expect(expected, actual)` | Compare `actual` with `expected` and record a pass or a fail. See Tests. |
@@ -147,6 +149,7 @@ These allocate unified memory and fill it on the host. They do not call cuBLAS.
 | `ndims(A)` | Always 2 in version 1 |
 | `isempty(A)` | True when either dimension is 0 |
 | `class(A)` | `'double'`, `'single'`, `'int32'`, or `'int64'` |
+| `print(A)` `prn(A)` | List every element, one matrix row per line. Typing a name summarizes an array with more than 64 elements as its type and size. `print` and `prn` list the elements, and the result is that text. |
 | `double(A)` `single(A)` `int32(A)` `int64(A)` | Convert, truncating toward zero for the integer conversions |
 | `horzcat` `vertcat` | Concatenation, also spelled `[A B]` and `[A; B]` |
 | `tril(A)` `triu(A)` | Lower or upper triangle. Optional second argument is the diagonal offset |
@@ -232,11 +235,12 @@ Inputs are promoted to `single` or `double` as described above. Multiple outputs
 
 ## Files
 
-CudaMath has two file types.
+CudaMath has three file types.
 
 | Extension | Role |
 |---|---|
 | `.cmw` | Workspace. Variables, user functions, and the cuRAND seed. Opening one replaces the session. |
+| `.cma` | Data file. The variables named by `save`. `load` assigns those variables and leaves the rest of the session alone. |
 | `.cm` | Script. Source the REPL executes. It is not loaded as workspace data. |
 
 File > Open Workspace and File > Save Workspace accept only `.cmw`. `loadworkspace` and `saveworkspace` do too. File > Open Script accepts only `.cm`. A script that contains `tests` / `end tests` is run with `runtests`. Any other script is run with `run`. Neither file type is a Windows executable.
@@ -321,6 +325,8 @@ Elapsed 12.345 ms
 
 `saveworkspace` writes one `.cmw` workspace file. `loadworkspace` replaces the current workspace from a `.cmw` file. A `.cm` script is never written by `saveworkspace`.
 
+`save('picked.cma', a, b, c, d)` writes a `.cma` data file containing the variables `a`, `b`, `c`, and `d` under those names. It does not store the rest of the workspace, user functions, or the cuRAND seed, and it does not change the session path. `load('picked.cma')` assigns those variables into the current workspace. `load('picked.cma', a, c)` assigns only `a` and `c`. A path that does not end in `.cma` is an error.
+
 The document records:
 
 - A format version
@@ -336,7 +342,7 @@ Small documents are JSON. Array values larger than 1 MiB are stored in a binary 
 
 `help` and `?` print the same three sections and return to the prompt. `?` is only that command: it is not an operator.
 
-- **Commands.** One line each for `help`, `?`, `who`, `whos`, `clear`, `clear functions`, `saveworkspace`, `loadworkspace`, `run`, `clc`, `expect`, `runtests`, `timer on`, `timer off`, `timer`, `cudaversion`, `memory`, `exit`, and `quit`. `?` is the same command as `help`.
+- **Commands.** One line each for `help`, `?`, `who`, `whos`, `clear`, `clear functions`, `saveworkspace`, `loadworkspace`, `save`, `load`, `run`, `clc`, `expect`, `runtests`, `timer on`, `timer off`, `timer`, `cudaversion`, `memory`, `exit`, and `quit`. `?` is the same command as `help`. `save(path, a, b)` writes those variables to a `.cma` data file. `load(path)` reads one back.
 - **Types.** `double`, `single`, `int32`, and `int64`. A bare literal is `double`. Values are dense 2-D column-major arrays, and a scalar is 1-by-1.
 - **Functions.** One line each for the built-ins in this spec, in the same groups as the GUI help: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER. This section also shows a user function: `function y = add(a, b)` through `end`, called as `add(1, 2)`. The call passes one value for each argument name, in that order, and the function returns the value assigned to `y`. `function y = name()` takes no arguments. `function show(a)` returns no value.
 
@@ -354,7 +360,7 @@ The process has one CUDA context and one unified-memory pool. The engine runs on
 
 Each tab is one session and contains two panes:
 
-- One pane is that session's REPL: input, history, and printed results
+- One pane is that session's REPL: input, history, and printed results. While the input is empty it shows `Enter expression here` in grey italic type. Enter runs the submission. Shift+Enter inserts a line.
 - The other pane lists that session's variables and user functions
 
 The variable list shows name, class, and size. Selecting a function shows its source. The list refreshes after each successful statement in that session. The menu bar is File and Help. File commands apply to the active tab. `runtests`, `timer on`, and `timer off` are typed in that tab's REPL. `help` and `?` typed in that tab's REPL print the same command text the console prints, into that tab. Clicking the status-bar timer field toggles the active session's timer.
