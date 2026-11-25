@@ -65,6 +65,7 @@
   <ItemGroup>
     <ClCompile Include="src\engine.cpp" />
     <ClCompile Include="src\ops.cpp" />
+    <ClCompile Include="src\solver.cpp" />
     <ClCompile Include="src\session.cpp" />
     <ClCompile Include="src\value.cpp" />
   </ItemGroup>

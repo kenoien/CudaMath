@@ -110,6 +110,7 @@ These run on the host. `saveworkspace` and `loadworkspace` are the serialization
 | `timer off` | Stop reporting elapsed time |
 | `timer` | Print `timer on` or `timer off` |
 | `help` | Print commands, types, and built-in functions. See the console app. |
+| `?` | Same as `help`. In the console REPL and in a GUI tab's REPL. |
 | `cudaversion` | Return the loaded CUDA runtime version from the engine, such as `13.4`. The value is a string in `ans`. |
 | `memory` | Print the three byte counts below, each with its explanation. `ans` is a 3-by-1 `double` of workspace, CUDA total, and CUDA free. |
 
@@ -132,9 +133,9 @@ These allocate unified memory and fill it on the host. They do not call cuBLAS.
 
 | Function | Behavior |
 |---|---|
-| `zeros(m,n)` | M-by-n array of zeros. One argument makes a square matrix. Type follows `like` when given, otherwise `double`. |
-| `ones(m,n)` | Same shape rules as `zeros`, filled with ones |
-| `eye(m,n)` | Identity, same shape rules |
+| `zeros(m,n)` | M-by-n array of zeros. One argument makes a square matrix. A trailing `'double'`, `'single'`, `'int32'`, or `'int64'` selects the type, as in `zeros(2, 3, 'int32')`. With no type string the result is `double`. |
+| `ones(m,n)` | Same shape and type rules as `zeros`, filled with ones |
+| `eye(m,n)` | Identity, same shape and type rules as `zeros` |
 | `diag(v)` | Diagonal matrix from a vector, or the diagonal vector of a matrix |
 | `linspace(a,b,n)` | Row vector of n samples from a to b. n defaults to 100 |
 | `colon` via `a:step:b` | Row vector |
@@ -333,11 +334,11 @@ Small documents are JSON. Array values larger than 1 MiB are stored in a binary 
 
 `CudaMathCli` runs the unified-memory check before it reads any input. On failure it prints the error to standard error and exits with code 1. It does not prompt. On success it reads a line, sends it to the interpreter, and prints the result when the line does not end with `;`. Errors print the message and the REPL continues. `exit` or `quit` leaves the process. `CudaMathCli --runtests <file>` runs the same startup check, then runs that test file and exits with code 0 when every check passed and code 1 when any check failed. A failed startup check exits with code 1 before any test runs.
 
-`help` prints three sections and returns to the prompt:
+`help` and `?` print the same three sections and return to the prompt. `?` is only that command: it is not an operator.
 
-- **Commands.** One line each for `help`, `who`, `whos`, `clear`, `clear functions`, `saveworkspace`, `loadworkspace`, `run`, `clc`, `expect`, `runtests`, `timer on`, `timer off`, `timer`, `cudaversion`, `memory`, `exit`, and `quit`.
+- **Commands.** One line each for `help`, `?`, `who`, `whos`, `clear`, `clear functions`, `saveworkspace`, `loadworkspace`, `run`, `clc`, `expect`, `runtests`, `timer on`, `timer off`, `timer`, `cudaversion`, `memory`, `exit`, and `quit`. `?` is the same command as `help`.
 - **Types.** `double`, `single`, `int32`, and `int64`. A bare literal is `double`. Values are dense 2-D column-major arrays, and a scalar is 1-by-1.
-- **Functions.** One line each for the built-ins in this spec, in the same groups as the GUI help: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER.
+- **Functions.** One line each for the built-ins in this spec, in the same groups as the GUI help: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER. This section also shows a user function: `function y = add(a, b)` through `end`, called as `add(1, 2)`. The call passes one value for each argument name, in that order, and the function returns the value assigned to `y`. `function y = name()` takes no arguments. `function show(a)` returns no value.
 
 The Types and Functions text is the same text the GUI Help window uses.
 
@@ -349,14 +350,14 @@ The process has one CUDA context and one unified-memory pool. The engine runs on
 
 ## GUI app
 
-`CudaMathGui` runs the unified-memory check before it creates the main window. On failure it shows the error in a dialog, and the process exits when the dialog is dismissed. On success it shows a WinUI 3 window with a menu bar, a row of tabs, and a status bar. The window opens with one tab, an untitled empty session.
+`CudaMathGui` runs the unified-memory check before it creates the main window. On failure it shows the error in a dialog, and the process exits when the dialog is dismissed. On success it shows a WinUI 3 window with a menu bar, a row of tabs, and a status bar. The window opens with one tab, an empty session named `Workspace 1`.
 
 Each tab is one session and contains two panes:
 
 - One pane is that session's REPL: input, history, and printed results
 - The other pane lists that session's variables and user functions
 
-The variable list shows name, class, and size. Selecting a function shows its source. The list refreshes after each successful statement in that session. The menu bar is File and Help. File commands apply to the active tab. `runtests`, `timer on`, and `timer off` are typed in that tab's REPL. Clicking the status-bar timer field toggles the active session's timer.
+The variable list shows name, class, and size. Selecting a function shows its source. The list refreshes after each successful statement in that session. The menu bar is File and Help. File commands apply to the active tab. `runtests`, `timer on`, and `timer off` are typed in that tab's REPL. `help` and `?` typed in that tab's REPL print the same command text the console prints, into that tab. Clicking the status-bar timer field toggles the active session's timer.
 
 ### Status bar
 
@@ -364,7 +365,7 @@ The bottom of the window is one status bar for the active tab. Switching tabs sh
 
 | Field | Visible text |
 |---|---|
-| Workspace | Active tab's file name, or `Untitled` when that session has no path. A trailing `*` means that session has unsaved changes. |
+| Workspace | Active tab's file name, or `Workspace N` when that session has no path. `N` is the smallest positive integer that no other open unsaved workspace is using. A trailing `*` means that session has unsaved changes. |
 | Timer | Active session's `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays in this field, for example `Timer on  12.345 ms`. Clicking this field toggles the active session. |
 | Memory | `Workspace used 12.0 MB    CUDA Free 8192.0 MB` |
 | CUDA | The runtime version string that `cudaversion` returns, for example `CUDA 13.4`. |
@@ -376,12 +377,12 @@ The memory labels are `Workspace used` and `CUDA Free`, each followed by a numbe
 | Item | Action |
 |---|---|
 | New Workspace | Open a tab on a new empty session. |
-| Open Workspace | Pick a `.cmw` file and open it in a new tab. If the active tab is an untitled session with no variables, no user functions, and no unsaved changes, load the file into that tab instead. |
+| Open Workspace | Pick a `.cmw` file and open it in a new tab. If the active tab is an unsaved session with no variables, no user functions, and no unsaved changes, load the file into that tab instead. |
 | Save Workspace | `saveworkspace` for the active session. If that session has no path yet, ask for one and require the `.cmw` extension. |
 | Open Script | Pick a `.cm` file and execute it in the active tab. Output appears in that tab's REPL. A file that contains `tests` / `end tests` is executed with `runtests`, so that session is restored afterward. Any other script is executed with `run` in that session. |
 | Exit | Close every tab and leave the process. |
 
-Closing a tab asks for confirmation when that session has unsaved changes. Cancel leaves the tab open. Exit, and the title-bar close button, ask once for each dirty session. A successful save clears that session's dirty flag. REPL `loadworkspace` in a tab replaces that session and sets its path. The tab title is the file name, or `Untitled`. A `*` on the tab title means unsaved changes.
+Closing a tab asks for confirmation when that session has unsaved changes. Cancel leaves the tab open. Exit, and the title-bar close button, ask once for each dirty session. A successful save clears that session's dirty flag. REPL `loadworkspace` in a tab replaces that session and sets its path. The tab title is the file name, or `Workspace N` while the session has no path. Saving or loading a path frees that `N` for a later unsaved workspace. A `*` on the tab title means unsaved changes.
 
 ### Help
 
@@ -394,7 +395,7 @@ The help window is a short document stored in the app, with three sections:
 
 - **App.** What CudaMath is, the REPL, tabs and sessions, the variable pane, the timer, tests, and workspace files.
 - **Types.** `double`, `single`, `int32`, and `int64`. A bare literal is `double`. Values are dense 2-D column-major arrays, and a scalar is 1-by-1.
-- **Functions.** One line each for the built-ins in this spec, in the same groups: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER. Include `expect`, `run`, `runtests`, `timer`, `help`, `cudaversion`, and `memory`. The Types and Functions text is shared with the console `help` command.
+- **Functions.** One line each for the built-ins in this spec, in the same groups: workspace, shape, cuRAND, elementwise math, reductions, cuBLAS, and cuSOLVER. Include `expect`, `run`, `runtests`, `timer`, `help`, `?`, `cudaversion`, and `memory`. `?` is the same command as `help`. The same section shows a user function: `function y = add(a, b)` through `end`, called as `add(1, 2)`. The call passes one value for each argument name, in that order, and the function returns the value assigned to `y`. `function y = name()` takes no arguments. `function show(a)` returns no value. The Types and Functions text is shared with the console `help` command.
 
 About shows the application name, the version, the line "Windows ARM64 for the NVIDIA N1X", the CUDA toolkit version the app was built with, and a one-line description: a MATLAB-style REPL that calls the CUDA math libraries.
 

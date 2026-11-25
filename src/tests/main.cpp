@@ -105,6 +105,25 @@ void checkTimerMemoryAndVersion(cudamath::Engine& engine) {
     engine.destroySession(session);
 }
 
+void checkWorkspaceNames(cudamath::Engine& engine) {
+    auto& first = engine.createSession();
+    auto& second = engine.createSession();
+    check(first.title() == "Workspace 1", "first unsaved workspace", first.title());
+    check(second.title() == "Workspace 2", "second unsaved workspace", second.title());
+    engine.destroySession(first);
+    auto& reused = engine.createSession();
+    check(reused.title() == "Workspace 1", "reused workspace number", reused.title());
+    reused.dirty = true;
+    check(reused.title() == "Workspace 1*", "dirty unsaved workspace", reused.title());
+    second.path = "C:\\tmp\\notes.cmw";
+    check(second.title() == "notes.cmw", "saved workspace uses the file name", second.title());
+    auto& afterSave = engine.createSession();
+    check(afterSave.title() == "Workspace 2", "saved workspace frees its number", afterSave.title());
+    engine.destroySession(second);
+    engine.destroySession(reused);
+    engine.destroySession(afterSave);
+}
+
 void checkSuite(cudamath::Engine& engine, const std::string& path) {
     auto& session = fresh(engine);
     const auto result = cudamath::execute(engine, session, "runtests '" + path + "'");
@@ -127,10 +146,13 @@ int main() {
         return 1;
     }
     checkCommand(engine, "help is a command", "help", cudamath::helpText());
+    checkCommand(engine, "question mark is help", "?", cudamath::helpText());
     checkWorkspaceCommands(engine);
     checkTimerMemoryAndVersion(engine);
+    checkWorkspaceNames(engine);
     checkSuite(engine, "tests/smoke.cm");
     checkSuite(engine, "tests/commands.cm");
+    checkSuite(engine, "tests/more.cm");
     if (gFailures != 0) {
         std::cerr << gFailures << " failed\n";
         return 1;
