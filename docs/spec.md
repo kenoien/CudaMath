@@ -16,8 +16,8 @@ Before either app opens a REPL, the engine checks that this process can use CUDA
 
 - The CUDA runtime initializes.
 - At least one CUDA device is present.
-- That device reports `cudaDevAttrManagedMemory`.
-- That device reports `cudaDevAttrConcurrentManagedAccess`, so host and device can use one `cudaMallocManaged` pointer without an explicit copy.
+- That device reports `cudaDevAttrManagedMemory`, so allocations can use `cudaMallocManaged`.
+- When a device also reports `cudaDevAttrConcurrentManagedAccess`, the engine selects it. The N1X Windows driver can report managed memory without concurrent access. That device is still accepted. The engine calls `cudaDeviceSynchronize` before the host reads results.
 
 If any step fails, the engine returns a short error and does not create a context. The text says that CudaMath requires an NVIDIA GPU with CUDA unified memory, and it includes the CUDA error string when the runtime provided one. There is no CPU fallback.
 
