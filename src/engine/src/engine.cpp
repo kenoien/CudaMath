@@ -2,6 +2,7 @@
 
 #include <cuda_runtime.h>
 #include <cublas_v2.h>
+#include <cusolverDn.h>
 
 #include <sstream>
 #include <windows.h>
@@ -64,6 +65,7 @@ bool Engine::startup(std::string& message) {
     }
     LoadLibraryW(utf8ToWide(bin + "\\cublas64_13.dll").c_str());
     LoadLibraryW(utf8ToWide(bin + "\\curand64_10.dll").c_str());
+    LoadLibraryW(utf8ToWide(bin + "\\cusolver64_12.dll").c_str());
 
     int count = 0;
     cudaError_t status = cudaGetDeviceCount(&count);
@@ -98,6 +100,12 @@ bool Engine::startup(std::string& message) {
         return false;
     }
     cublas_ = handle;
+    cusolverDnHandle_t solver = nullptr;
+    if (cusolverDnCreate(&solver) != CUSOLVER_STATUS_SUCCESS) {
+        message = failure("cuSOLVER could not be created.");
+        return false;
+    }
+    solver_ = solver;
     int version = 0;
     cudaRuntimeGetVersion(&version);
     runtimeVersion_ = version;
@@ -133,8 +141,29 @@ MemoryInfo Engine::memory(const Session& session) const {
     return info;
 }
 
+namespace {
+
+int unusedWorkspaceNumber(const std::vector<std::unique_ptr<Session>>& sessions) {
+    int number = 1;
+    for (;;) {
+        bool used = false;
+        for (const auto& session : sessions) {
+            if (session->path.empty() && session->workspaceNumber == number) {
+                used = true;
+                break;
+            }
+        }
+        if (!used) return number;
+        ++number;
+    }
+}
+
+}  // namespace
+
 Session& Engine::createSession() {
-    sessions_.push_back(std::make_unique<Session>());
+    auto session = std::make_unique<Session>();
+    session->workspaceNumber = unusedWorkspaceNumber(sessions_);
+    sessions_.push_back(std::move(session));
     return *sessions_.back();
 }
 

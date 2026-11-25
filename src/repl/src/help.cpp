@@ -16,12 +16,23 @@ const char* kTypes =
 
 const char* kFunctions =
     "Functions\n"
-    "  zeros, ones, eye, size, numel, length, ndims, isempty, class\n"
-    "  double, single, int32, int64, reshape\n"
-    "  rng, rand, randn\n"
-    "  abs, sqrt, sum\n"
-    "  Operators + - .* ./ * ' and comparisons\n"
-    "  function/end, if/end, for/end, while/end\n"
+    "  zeros, ones, eye, diag, linspace, repmat, reshape, tril, triu\n"
+    "  size, numel, length, ndims, isempty, class, horzcat, vertcat\n"
+    "  double, single, int32, int64\n"
+    "  rng, rand, randn, randi\n"
+    "  abs, sign, sqrt, exp, log, log2, log10, sin, cos, tan\n"
+    "  asin, acos, atan, atan2, sinh, cosh, tanh, floor, ceil, round, fix, mod, rem, power\n"
+    "  sum, prod, mean, min, max, any, all, norm, dot, trace\n"
+    "  inv, det, rank, lu, qr, chol, svd, eig, cross\n"
+    "  Operators + - .* ./ .^ * / \\ ' .' and comparisons, &, |, ~\n"
+    "  A user function takes its arguments in parentheses, separated by commas:\n"
+    "    function y = add(a, b)\n"
+    "      y = a + b\n"
+    "    end\n"
+    "  Call it as add(1, 2). The call passes one value for each name, in that order.\n"
+    "  The function returns the value assigned to y.\n"
+    "  function y = name() takes no arguments. function show(a) returns no value.\n"
+    "  if/end, for/end, while/end\n"
     "  tests/end tests and test/end group expect checks\n"
     "\n"
     "Workspace files use .cmw. Scripts and suites use .cm.\n";
@@ -31,7 +42,7 @@ const char* kFunctions =
 std::string helpText() {
     return std::string(
         "Commands\n"
-        "  help                 commands, types, and functions\n"
+        "  help, ?              commands, types, and functions\n"
         "  who                  list defined names\n"
         "  whos                 name, type, and size\n"
         "  clear                clear one name, or the workspace\n"
@@ -90,11 +101,14 @@ std::string statusMemory(const Session& session) {
 
 bool submissionIsOpen(std::string_view input) {
     int depth = 0;
+    int nest = 0;
     std::string word;
     std::string previous;
     auto flush = [&]() {
         if (word.empty()) return;
-        if (word == "tests" && previous == "end") {
+        if (nest > 0) {
+            previous.clear();
+        } else if (word == "tests" && previous == "end") {
             previous.clear();
         } else if (word == "function" || word == "if" || word == "for" || word == "while" || word == "test" || word == "tests") {
             ++depth;
@@ -140,6 +154,8 @@ bool submissionIsOpen(std::string_view input) {
             word.push_back(static_cast<char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a' : c));
         } else {
             flush();
+            if (c == '(' || c == '[') ++nest;
+            else if (nest > 0 && (c == ')' || c == ']')) --nest;
         }
     }
     flush();

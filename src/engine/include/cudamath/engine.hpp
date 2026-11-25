@@ -36,12 +36,14 @@ public:
     std::mutex& submissionMutex() { return submission_; }
 
     void* cublas() const { return cublas_; }
+    void* solver() const { return solver_; }
 
 private:
     Engine() = default;
     bool ready_{false};
     int runtimeVersion_{0};
     void* cublas_{nullptr};
+    void* solver_{nullptr};
     std::mutex submission_;
     std::vector<std::unique_ptr<Session>> sessions_;
 };

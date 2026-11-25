@@ -21,10 +21,13 @@ bool Session::isPristine() const {
 }
 
 std::string Session::title() const {
-    std::string name = path.empty() ? "Untitled" : path;
-    const auto slash = name.find_last_of("\\/");
-    if (slash != std::string::npos) {
-        name = name.substr(slash + 1);
+    std::string name;
+    if (path.empty()) {
+        name = "Workspace " + std::to_string(workspaceNumber > 0 ? workspaceNumber : 1);
+    } else {
+        name = path;
+        const auto slash = name.find_last_of("\\/");
+        if (slash != std::string::npos) name = name.substr(slash + 1);
     }
     if (dirty) {
         name.push_back('*');

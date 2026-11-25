@@ -48,8 +48,8 @@
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(CUDA_PATH)\lib\arm64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>cudart.lib;cublas.lib;curand.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <DelayLoadDLLs>cudart64_13.dll;cublas64_13.dll;curand64_10.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
+      <AdditionalDependencies>cudart.lib;cublas.lib;curand.lib;cusolver.lib;delayimp.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <DelayLoadDLLs>cudart64_13.dll;cublas64_13.dll;curand64_10.dll;cusolver64_12.dll;%(DelayLoadDLLs)</DelayLoadDLLs>
       <SubSystem>Console</SubSystem>
     </Link>
   </ItemDefinitionGroup>

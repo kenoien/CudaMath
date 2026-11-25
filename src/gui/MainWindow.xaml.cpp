@@ -250,7 +250,7 @@ void MainWindow::RefreshHeader(int id) {
 void MainWindow::RefreshStatus() {
     auto* tab = Find(SelectedId());
     if (tab == nullptr) {
-        WorkspaceStatus().Text(L"Untitled");
+        WorkspaceStatus().Text(L"");
         TimerStatus().Content(box_value(L"Timer off"));
         MemoryStatus().Text(L"Workspace used 0.0 MB    CUDA Free " + megabytes(cudaFreeBytes_));
         return;

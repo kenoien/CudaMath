@@ -20,6 +20,7 @@ struct UserFunction {
 // stays free of CUDA types.
 struct Session {
     std::string path;
+    int workspaceNumber{0};
     bool dirty{false};
     bool timer{false};
     double lastElapsedMs{0};

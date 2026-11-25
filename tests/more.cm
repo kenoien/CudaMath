@@ -1,0 +1,86 @@
+tests 'more'
+
+  test 'index else and power'
+    a = [1 2; 3 4];
+    expect(a(1, 2), 2)
+    expect(a(2, :), [3 4])
+    expect(a(end, 1), 3)
+    expect(a .^ 2, [1 4; 9 16])
+    flag = 0;
+    if 0
+      flag = 1
+    elseif 1
+      flag = 2
+    else
+      flag = 3
+    end
+    expect(flag, 2)
+    expect(~0, 1)
+    expect([1 0] & [1 1], [1 0])
+    expect([0 1] | [0 0], [0 1])
+  end
+
+  test 'shape'
+    expect(diag([1 2 3]), [1 0 0; 0 2 0; 0 0 3])
+    expect(diag([1 2; 3 4]), [1; 4])
+    expect(linspace(0, 1, 3), [0 0.5 1])
+    expect(repmat([1 2], 2, 1), [1 2; 1 2])
+    expect(tril([1 2; 3 4]), [1 0; 3 4])
+    expect(triu([1 2; 3 4]), [1 2; 0 4])
+    expect(horzcat([1; 2], [3; 4]), [1 3; 2 4])
+    expect(vertcat([1 2], [3 4]), [1 2; 3 4])
+  end
+
+  test 'elementwise and reductions'
+    expect(sign(int32([-2 0 3])), int32([-1 0 1]))
+    expect(exp(0), 1)
+    expect(log(1), 0)
+    expect(sin(0), 0)
+    expect(floor(1.9), 1)
+    expect(fix(-1.9), -1)
+    expect(mod(5, 3), 2)
+    expect(rem(-5, 3), -2)
+    expect(sum([1 2; 3 4]), [4 6])
+    expect(prod([1 2; 3 4], 2), [2; 12])
+    expect(mean([1 3; 5 7]), [3 5])
+    expect(min([1 4; 3 2]), [1 2])
+    expect(max([1 4; 0 2]), [1 4])
+    expect(any([0 1; 0 0]), [0 1])
+    expect(all([1 1; 0 1]), [0 1])
+    expect(dot([1 2 3], [1 0 1]), 4)
+    expect(cross([1 0 0], [0 1 0]), [0 0 1])
+    expect(trace([1 2; 3 4]), 5)
+    expect(norm([3 4]), 5)
+    expect(norm(eye(2), 'fro'), sqrt(2))
+  end
+
+  test 'solvers'
+    expect(det([1 2; 3 4]), -2)
+    expect(inv(eye(2)), eye(2))
+    expect(rank(eye(3)), 3)
+    expect(rank(zeros(2)), 0)
+    a = [4 1; 2 3];
+    expect(a \ a, eye(2))
+    expect(a / a, eye(2))
+    [L, U, P] = lu(a);
+    expect(P * a, L * U)
+    [Q, R] = qr(eye(2));
+    expect(Q, eye(2))
+    expect(R, eye(2))
+    expect(chol(eye(2)), eye(2))
+    expect(svd(eye(2)), [1; 1])
+    expect(eig(eye(2)), [1; 1])
+    expect(randi(1, 2, 2), ones(2))
+  end
+
+  test 'two outputs'
+    function [y, z] = both(x)
+      y = x + 1
+      z = x + 2
+    end
+    [p, q] = both(3);
+    expect(p, 4)
+    expect(q, 5)
+  end
+
+end tests

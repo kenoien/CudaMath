@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cctype>
 #include <fstream>
 #include <sstream>
@@ -48,6 +49,10 @@ private:
     std::string source_;
     std::size_t i_{0};
     Frame frame_;
+    int nargout_{1};
+    int indexDepth_{0};
+    std::int64_t indexEnd_{0};
+    std::vector<Value> multi_;
 
     bool done() const { return i_ >= source_.size(); }
     char peek() const { return done() ? '\0' : source_[i_]; }
@@ -195,7 +200,6 @@ private:
         if (name == "reshape") return reshape(args.at(0), positiveSize(args.at(1)), positiveSize(args.at(2)));
         if (name == "abs") return applyAbs(args.at(0));
         if (name == "sqrt") return applySqrt(args.at(0));
-        if (name == "sum") return sumAll(args.at(0));
         if (name == "cudaversion") return Value::str(Engine::instance().cudaVersion());
         if (name == "rng") {
             if (args.empty()) return Value::scalar(DType::F64, static_cast<double>(session_.rngSeed));
@@ -205,6 +209,102 @@ private:
         if (name == "expect") {
             if (args.size() < 2) throw EvalError("expect needs an expected value and an actual value");
             return expect(args[0], args[1], args.size() >= 3 ? asNumber(args[2]) : -1);
+        }
+        if (name == "diag") return diag(args.at(0));
+        if (name == "linspace") {
+            const auto count = args.size() >= 3 ? positiveSize(args[2]) : static_cast<std::int64_t>(100);
+            return linspace(asNumber(args.at(0)), asNumber(args.at(1)), count);
+        }
+        if (name == "repmat") {
+            const auto rows = positiveSize(args.at(1));
+            const auto cols = args.size() >= 3 ? positiveSize(args[2]) : rows;
+            return repmat(args.at(0), rows, cols);
+        }
+        if (name == "tril") return tril(args.at(0), args.size() >= 2 ? static_cast<std::int64_t>(asNumber(args[1])) : 0);
+        if (name == "triu") return triu(args.at(0), args.size() >= 2 ? static_cast<std::int64_t>(asNumber(args[1])) : 0);
+        if (name == "horzcat") return horzcat(args);
+        if (name == "vertcat") return vertcat(args);
+        if (name == "sign") return applySign(args.at(0));
+        if (name == "exp" || name == "log" || name == "log2" || name == "log10" || name == "sin" || name == "cos" || name == "tan" ||
+            name == "asin" || name == "acos" || name == "atan" || name == "sinh" || name == "cosh" || name == "tanh" || name == "floor" ||
+            name == "ceil" || name == "round" || name == "fix") {
+            int op = 3;
+            if (name == "log") op = 4;
+            else if (name == "log2") op = 5;
+            else if (name == "log10") op = 6;
+            else if (name == "sin") op = 7;
+            else if (name == "cos") op = 8;
+            else if (name == "tan") op = 9;
+            else if (name == "asin") op = 10;
+            else if (name == "acos") op = 11;
+            else if (name == "atan") op = 12;
+            else if (name == "sinh") op = 13;
+            else if (name == "cosh") op = 14;
+            else if (name == "tanh") op = 15;
+            else if (name == "floor") op = 16;
+            else if (name == "ceil") op = 17;
+            else if (name == "round") op = 18;
+            else if (name == "fix") op = 19;
+            return applyUnary(args.at(0), op);
+        }
+        if (name == "atan2") return applyBinaryMath(args.at(0), args.at(1), 1);
+        if (name == "mod") return applyBinaryMath(args.at(0), args.at(1), 2);
+        if (name == "rem") return applyBinaryMath(args.at(0), args.at(1), 3);
+        if (name == "power") return applyBinaryMath(args.at(0), args.at(1), 0);
+        if (name == "sum" || name == "prod" || name == "any" || name == "all" || name == "mean") {
+            const bool every = args.size() >= 2 && args.back().isString && args.back().text == "all";
+            int dim = 1;
+            if (!every && args.size() >= 2 && !args[1].isString && !args[1].empty()) dim = static_cast<int>(asNumber(args[1]));
+            int op = 0;
+            if (name == "prod") op = 1;
+            if (name == "any") op = 4;
+            if (name == "all") op = 5;
+            Value reduced = reduce(args.at(0), op, dim, every);
+            if (name != "mean") return reduced;
+            const double denom = every ? static_cast<double>(args[0].numel()) : static_cast<double>(dim == 2 ? args[0].cols : args[0].rows);
+            Value out = reduced.type == DType::F64 || reduced.type == DType::F32 ? reduced : convertTo(reduced, DType::F64);
+            if (out.type != DType::F64 && out.type != DType::F32) out = convertTo(out, DType::F64);
+            for (std::int64_t i = 0; i < out.numel(); ++i) out.set(i, denom == 0 ? 0 : out.get(i) / denom);
+            return out;
+        }
+        if (name == "min" || name == "max") {
+            if (args.size() >= 2 && !args[1].isString && !args[1].empty()) {
+                return name == "min" ? minimum(args[0], args[1]) : maximum(args[0], args[1]);
+            }
+            int dim = 1;
+            if (args.size() >= 3) dim = static_cast<int>(asNumber(args[2]));
+            return reduce(args.at(0), name == "min" ? 2 : 3, dim, false);
+        }
+        if (name == "norm") {
+            int kind = -1;
+            if (args.size() >= 2) {
+                if (args[1].isString && args[1].text == "fro") kind = 0;
+                else if (args[1].isString && args[1].text == "inf") kind = 3;
+                else {
+                    const double p = asNumber(args[1]);
+                    if (p == 1) kind = 1;
+                    else if (std::isinf(p)) kind = 3;
+                    else kind = 2;
+                }
+            }
+            return norm(args.at(0), kind);
+        }
+        if (name == "dot") return dot(args.at(0), args.at(1));
+        if (name == "cross") return cross(args.at(0), args.at(1));
+        if (name == "trace") return trace(args.at(0));
+        if (name == "randi") return randi(args);
+        if (name == "inv") return inverse(args.at(0));
+        if (name == "det") return determinant(args.at(0));
+        if (name == "rank") return matrixRank(args.at(0));
+        if (name == "chol") return chol(args.at(0));
+        if (name == "lu" || name == "qr" || name == "svd" || name == "eig") {
+            std::vector<Value> parts;
+            if (name == "lu") parts = factorLu(args.at(0), nargout_);
+            else if (name == "qr") parts = factorQr(args.at(0), nargout_);
+            else if (name == "svd") parts = factorSvd(args.at(0), nargout_);
+            else parts = factorEig(args.at(0), nargout_);
+            multi_ = parts;
+            return parts.empty() ? Value::matrix(DType::F64, 0, 0) : parts.front();
         }
         auto fn = session_.functions.find(name);
         if (fn != session_.functions.end()) return callUser(fn->second, args);
@@ -248,10 +348,54 @@ private:
         for (std::size_t n = 0; n < args.size(); ++n) locals[fn.args[n]] = args[n];
         Parser nested(session_, fn.body, Frame{&locals});
         nested.run();
-        if (fn.outputs.empty()) return Value::matrix(DType::F64, 0, 0);
-        auto it = locals.find(fn.outputs[0]);
-        if (it == locals.end()) throw EvalError(fn.name + " did not assign " + fn.outputs[0]);
-        return it->second;
+        std::vector<Value> outs;
+        for (const std::string& output : fn.outputs) {
+            auto it = locals.find(output);
+            if (it == locals.end()) throw EvalError(fn.name + " did not assign " + output);
+            outs.push_back(it->second);
+        }
+        multi_ = outs;
+        if (outs.empty()) return Value::matrix(DType::F64, 0, 0);
+        return outs.front();
+    }
+
+    Value randi(const std::vector<Value>& args) {
+        if (args.empty()) throw EvalError("randi needs a range");
+        double low = 1;
+        double high = 0;
+        std::size_t at = 0;
+        if (args[0].numel() == 2) {
+            low = args[0].get(0);
+            high = args[0].get(1);
+            at = 1;
+        } else {
+            high = asNumber(args[0]);
+            at = 1;
+        }
+        std::int64_t rows = 1;
+        std::int64_t cols = 1;
+        if (at < args.size() && !args[at].isString) {
+            rows = positiveSize(args[at]);
+            ++at;
+            if (at < args.size() && !args[at].isString) {
+                cols = positiveSize(args[at]);
+                ++at;
+            } else {
+                cols = rows;
+            }
+        }
+        DType type = DType::F64;
+        if (at < args.size()) type = typeArg(args, at, DType::F64);
+        Value drawn = randUniform(session_, rows, cols, DType::F64);
+        const double span = high - low + 1;
+        Value out = Value::matrix(type == DType::F32 ? DType::F64 : type, rows, cols);
+        for (std::int64_t i = 0; i < drawn.numel(); ++i) {
+            double sample = low + std::floor(drawn.get(i) * span);
+            if (sample > high) sample = high;
+            out.set(i, sample);
+        }
+        if (type == DType::F32) return convertTo(out, DType::F32);
+        return out;
     }
 
     Value parsePrimary() {
@@ -266,7 +410,10 @@ private:
         if (std::isdigit(static_cast<unsigned char>(peek())) || peek() == '.') return parseNumber();
         const std::string name = ident();
         skip();
+        if (indexDepth_ > 0 && name == "end") return Value::scalar(DType::F64, static_cast<double>(indexEnd_));
+        Value* found = lookup(name);
         if (eat('(')) {
+            if (found != nullptr && !found->isString) return postfix(parseIndex(*found));
             std::vector<Value> args;
             skip();
             if (!eat(')')) {
@@ -278,14 +425,51 @@ private:
             }
             return postfix(call(name, args));
         }
-        Value* found = lookup(name);
         if (found == nullptr) throw EvalError("undefined variable " + name);
         return postfix(*found);
+    }
+
+    Value parseIndex(const Value& value) {
+        bool two = false;
+        int depth = 1;
+        for (std::size_t pos = i_; pos < source_.size() && depth > 0; ++pos) {
+            const char c = source_[pos];
+            if (c == '(') ++depth;
+            else if (c == ')') --depth;
+            else if (c == ',' && depth == 1) two = true;
+        }
+        std::vector<Value> indexes;
+        std::vector<bool> colon;
+        do {
+            skip();
+            if (eat(':')) {
+                colon.push_back(true);
+                indexes.push_back(Value::matrix(DType::F64, 0, 0));
+            } else {
+                const int axis = static_cast<int>(indexes.size());
+                const int savedDepth = indexDepth_;
+                const auto savedEnd = indexEnd_;
+                ++indexDepth_;
+                indexEnd_ = !two ? value.numel() : (axis == 0 ? value.rows : value.cols);
+                indexes.push_back(parseOr());
+                colon.push_back(false);
+                indexDepth_ = savedDepth;
+                indexEnd_ = savedEnd;
+            }
+            skip();
+        } while (eat(','));
+        if (!eat(')')) throw EvalError("expected )");
+        return subscript(value, indexes, colon);
     }
 
     Value postfix(Value value) {
         for (;;) {
             skip();
+            if (peek() == '.' && i_ + 1 < source_.size() && source_[i_ + 1] == '\'') {
+                i_ += 2;
+                value = transpose(value);
+                continue;
+            }
             if (eat('\'')) {
                 value = transpose(value);
                 continue;
@@ -312,18 +496,9 @@ private:
             if (done()) throw EvalError("expected ]");
         }
         if (!rows.empty() && rows.back().empty()) rows.pop_back();
-        const std::int64_t rowCount = static_cast<std::int64_t>(rows.size());
-        const std::int64_t colCount = rows.empty() ? 0 : static_cast<std::int64_t>(rows[0].size());
-        Value out = Value::matrix(DType::F64, rowCount, colCount);
-        for (std::int64_t r = 0; r < rowCount; ++r) {
-            if (static_cast<std::int64_t>(rows[static_cast<std::size_t>(r)].size()) != colCount) {
-                throw EvalError("matrix rows must have the same length");
-            }
-            for (std::int64_t c = 0; c < colCount; ++c) {
-                out.set(c * rowCount + r, asNumber(rows[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)]));
-            }
-        }
-        return out;
+        std::vector<Value> stacked;
+        for (const auto& row : rows) stacked.push_back(horzcat(row));
+        return vertcat(stacked);
     }
 
     Value parseNumber() {
@@ -345,6 +520,7 @@ private:
         skip();
         if (eat('+')) return parseUnary();
         if (eat('-')) return unaryMinus(parseUnary());
+        if (eat('~')) return logicalNot(parseUnary());
         return parsePrimary();
     }
 
@@ -354,16 +530,19 @@ private:
             skip();
             char op = 0;
             bool element = false;
-            if (eat('.') && (peek() == '*' || peek() == '/')) {
-                element = true;
-                op = peek() == '*' ? '*' : '/';
+            if (eat('.') && (peek() == '*' || peek() == '/' || peek() == '^')) {
+                element = peek() != '^';
+                op = peek();
                 ++i_;
-            } else if (peek() == '*' || peek() == '/') {
+            } else if (peek() == '*' || peek() == '/' || peek() == '\\' || peek() == '^') {
                 op = peek();
                 ++i_;
             } else break;
             Value right = parseUnary();
-            left = binary(left, right, op, element || op == '/');
+            if (op == '^') left = applyBinaryMath(left, right, 0);
+            else if (op == '\\') left = mldivide(left, right);
+            else if (op == '/' && !element) left = mrdivide(left, right);
+            else left = binary(left, right, op, element);
         }
         return left;
     }
@@ -423,22 +602,32 @@ private:
 
     Value parseAnd() {
         Value left = parseCompare();
-        while (eat('&') && eat('&')) {
-            Value right = parseCompare();
-            left = Value::scalar(DType::F64, isTrue(left) && isTrue(right) ? 1 : 0);
+        for (;;) {
+            skip();
+            if (!eat('&')) return left;
+            if (eat('&')) {
+                Value right = parseCompare();
+                left = Value::scalar(DType::F64, isTrue(left) && isTrue(right) ? 1 : 0);
+            } else {
+                left = logicalAnd(left, parseCompare());
+            }
         }
-        return left;
     }
 
     Value parseOr() {
         Value left = parseAnd();
-        while (eat('|') && eat('|')) {
-            const bool decided = isTrue(left);
-            Value right = parseAnd();
-            if (decided) left = Value::scalar(DType::F64, 1);
-            else left = Value::scalar(DType::F64, isTrue(right) ? 1 : 0);
+        for (;;) {
+            skip();
+            if (!eat('|')) return left;
+            if (eat('|')) {
+                const bool decided = isTrue(left);
+                Value right = parseAnd();
+                if (decided) left = Value::scalar(DType::F64, 1);
+                else left = Value::scalar(DType::F64, isTrue(right) ? 1 : 0);
+            } else {
+                left = logicalOr(left, parseAnd());
+            }
         }
-        return left;
     }
 
     static bool opensBlock(const std::string& word) {
@@ -456,10 +645,29 @@ private:
         return word;
     }
 
-    std::string grabUntilEnd() {
+    std::string grabUntilEnd(bool stopClause = false) {
         int depth = 1;
+        int nest = 0;
         std::string body;
         while (!done() && depth > 0) {
+            if (nest == 0 && (peek() == '(' || peek() == '[')) {
+                body.push_back(peek());
+                ++i_;
+                ++nest;
+                continue;
+            }
+            if (nest > 0 && (peek() == '(' || peek() == '[')) {
+                body.push_back(peek());
+                ++i_;
+                ++nest;
+                continue;
+            }
+            if (nest > 0 && (peek() == ')' || peek() == ']')) {
+                body.push_back(peek());
+                ++i_;
+                --nest;
+                continue;
+            }
             if (peek() == '\'') {
                 const char previous = i_ == 0 ? '\0' : source_[i_ - 1];
                 const bool transpose = !std::isspace(static_cast<unsigned char>(previous)) &&
@@ -489,7 +697,11 @@ private:
                 const std::size_t mark = i_;
                 const std::string word = readWord();
                 const char after = peek();
-                const bool boundary = !std::isalnum(static_cast<unsigned char>(after)) && after != '_';
+                const bool boundary = nest == 0 && !std::isalnum(static_cast<unsigned char>(after)) && after != '_';
+                if (boundary && stopClause && depth == 1 && (word == "else" || word == "elseif")) {
+                    i_ = mark;
+                    return body;
+                }
                 if (boundary && word == "end") {
                     --depth;
                     if (depth == 0) {
@@ -518,6 +730,10 @@ private:
 
     std::string statement(std::ostringstream& printed) {
         skip();
+        if (peek() == '?') {
+            ++i_;
+            return answerText(helpText());
+        }
         if (eatWord("help")) return answerText(helpText());
         if (eatWord("who")) return answerText(who());
         if (eatWord("whos")) return answerText(whos());
@@ -549,6 +765,33 @@ private:
         if (eatWord("for")) return forBlock(printed);
         if (eatWord("while")) return whileBlock(printed);
         if (eatWord("function")) return functionDef();
+        if (eat('[')) {
+            std::vector<std::string> names;
+            skip();
+            if (!eat(']')) {
+                do {
+                    skip();
+                    names.push_back(ident());
+                    skip();
+                } while (eat(','));
+                if (!eat(']')) throw EvalError("expected ]");
+            }
+            if (!eat('=')) throw EvalError("expected =");
+            const int saved = nargout_;
+            nargout_ = static_cast<int>(names.size());
+            Value value = parseOr();
+            if (multi_.size() != names.size()) {
+                if (names.size() != 1) throw EvalError("output count");
+                assign(names[0], value);
+            } else {
+                for (std::size_t n = 0; n < names.size(); ++n) assign(names[n], multi_[n]);
+                value = multi_.front();
+            }
+            multi_.clear();
+            nargout_ = saved;
+            assign("ans", value);
+            return value.format();
+        }
         const std::size_t mark = i_;
         if (std::isalpha(static_cast<unsigned char>(peek())) || peek() == '_') {
             const std::string name = ident();
@@ -639,18 +882,32 @@ private:
         std::ofstream file(path, std::ios::binary);
         if (!file) throw EvalError("could not write " + path);
         file << "{\"version\":1,\"seed\":" << session_.rngSeed << ",\"drawn\":" << session_.rngDrawn << ",\"variables\":[";
+        std::ofstream sidecar;
+        std::uint64_t sidecarAt = 0;
         bool first = true;
         for (const auto& entry : session_.vars) {
             if (entry.second.isString) continue;
             if (!first) file << ',';
             first = false;
+            const auto bytes = static_cast<std::uint64_t>(entry.second.numel()) * dtypeSize(entry.second.type);
             file << "{\"name\":\"" << entry.first << "\",\"type\":\"" << dtypeName(entry.second.type)
-                 << "\",\"rows\":" << entry.second.rows << ",\"cols\":" << entry.second.cols << ",\"values\":[";
-            for (std::int64_t n = 0; n < entry.second.numel(); ++n) {
-                if (n) file << ',';
-                file << entry.second.get(n);
+                 << "\",\"rows\":" << entry.second.rows << ",\"cols\":" << entry.second.cols << ',';
+            if (bytes > 1024ull * 1024ull) {
+                if (!sidecar.is_open()) {
+                    sidecar.open(path + ".bin", std::ios::binary);
+                    if (!sidecar) throw EvalError("could not write " + path + ".bin");
+                }
+                sidecar.write(static_cast<const char*>(entry.second.data()), static_cast<std::streamsize>(bytes));
+                file << "\"sidecar\":{\"offset\":" << sidecarAt << ",\"length\":" << bytes << "}}";
+                sidecarAt += bytes;
+            } else {
+                file << "\"values\":[";
+                for (std::int64_t n = 0; n < entry.second.numel(); ++n) {
+                    if (n) file << ',';
+                    file << entry.second.get(n);
+                }
+                file << "]}";
             }
-            file << "]}";
         }
         file << "],\"functions\":[";
         first = true;
@@ -759,14 +1016,25 @@ private:
                 const auto rows = static_cast<std::int64_t>(findNumber("rows", typeEnd));
                 const auto cols = static_cast<std::int64_t>(findNumber("cols", typeEnd));
                 Value value = Value::matrix(type, rows, cols);
-                auto values = text.find("\"values\":[", typeEnd);
-                values += 10;
-                for (std::int64_t n = 0; n < value.numel(); ++n) {
-                    values = text.find_first_of("-0123456789", values);
-                    std::size_t stop = values;
-                    while (stop < text.size() && (std::isdigit(static_cast<unsigned char>(text[stop])) || text[stop] == '-' || text[stop] == '.' || text[stop] == 'e' || text[stop] == 'E' || text[stop] == '+')) ++stop;
-                    value.set(n, std::stod(text.substr(values, stop - values)));
-                    values = stop;
+                const auto side = text.find("\"sidecar\"", typeEnd);
+                if (side != std::string::npos && side < objectEnd) {
+                    const auto offset = static_cast<std::uint64_t>(findNumber("offset", side));
+                    const auto length = static_cast<std::uint64_t>(findNumber("length", side));
+                    std::ifstream bin(path + ".bin", std::ios::binary);
+                    if (!bin) throw EvalError("could not read " + path + ".bin");
+                    bin.seekg(static_cast<std::streamoff>(offset));
+                    bin.read(static_cast<char*>(value.data()), static_cast<std::streamsize>(length));
+                    if (!bin) throw EvalError("could not read " + path + ".bin");
+                } else {
+                    auto values = text.find("\"values\":[", typeEnd);
+                    values += 10;
+                    for (std::int64_t n = 0; n < value.numel(); ++n) {
+                        values = text.find_first_of("-0123456789", values);
+                        std::size_t stop = values;
+                        while (stop < text.size() && (std::isdigit(static_cast<unsigned char>(text[stop])) || text[stop] == '-' || text[stop] == '.' || text[stop] == 'e' || text[stop] == 'E' || text[stop] == '+')) ++stop;
+                        value.set(n, std::stod(text.substr(values, stop - values)));
+                        values = stop;
+                    }
                 }
                 session_.vars[name] = std::move(value);
             }
@@ -856,12 +1124,29 @@ private:
         return output;
     }
 
-    std::string ifBlock(std::ostringstream& printed) {
-        Value cond = parseOr();
-        const std::string body = grabUntilEnd();
-        if (!isTrue(cond)) return {};
-        Parser nested(session_, body, frame_);
-        return nested.run();
+    std::string ifBlock(std::ostringstream&) {
+        std::string chosen;
+        bool taken = false;
+        while (true) {
+            Value cond = parseOr();
+            const std::string body = grabUntilEnd(true);
+            if (!taken && isTrue(cond)) {
+                Parser nested(session_, body, frame_);
+                chosen = nested.run();
+                taken = true;
+            }
+            skip();
+            if (eatWord("elseif")) continue;
+            if (eatWord("else")) {
+                const std::string rest = grabUntilEnd(false);
+                if (!taken) {
+                    Parser nested(session_, rest, frame_);
+                    return nested.run();
+                }
+                return chosen;
+            }
+            return chosen;
+        }
     }
 
     std::string forBlock(std::ostringstream&) {
@@ -900,7 +1185,19 @@ private:
     std::string functionDef() {
         skip();
         UserFunction fn;
-        if (std::isalpha(static_cast<unsigned char>(peek())) || peek() == '_') {
+        if (eat('[')) {
+            skip();
+            if (!eat(']')) {
+                do {
+                    skip();
+                    fn.outputs.push_back(ident());
+                    skip();
+                } while (eat(','));
+                if (!eat(']')) throw EvalError("expected ]");
+            }
+            if (!eat('=')) throw EvalError("expected =");
+            fn.name = ident();
+        } else if (std::isalpha(static_cast<unsigned char>(peek())) || peek() == '_') {
             const std::string first = ident();
             skip();
             if (eat('=')) {
