@@ -78,6 +78,7 @@ private:
     void RefreshSymbols(int id);
     void RefreshHeader(int id);
     void RefreshStatus();
+    void RebuildWindowMenu();
     void RemoveTab(int id);
     void Append(TabState& tab, const std::string& text);
     HWND WindowHandle();

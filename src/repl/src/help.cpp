@@ -71,10 +71,11 @@ std::string helpDocument() {
         "  Each document window has a REPL and a list of that session's variables and user functions.\n"
         "  Selecting a function shows its source. Selecting a variable shows its elements.\n"
         "  Each workspace is a document window. Its title is the workspace name, and its status bar shows that window's timer and memory.\n"
+        "  Window lists the open documents. Choosing one brings that window to the front.\n"
         "  A large command runs on a worker thread. The window stays responsive, the frame title says Running, and that document shows Running until the command finishes.\n"
         "  Another command waits its turn, and that document shows Waiting.\n"
         "  The frame status bar shows CUDA free memory and the CUDA version for the whole process.\n"
-        "  Click the timer field to turn the timer on or off.\n"
+        "  Click the Timer button on a document's status bar to turn the timer on or off.\n"
         "  A tests/end tests file is a suite. Workspace files use .cmw. Scripts use .cm.\n"
         "\n") + kTypes + kFunctions;
 }

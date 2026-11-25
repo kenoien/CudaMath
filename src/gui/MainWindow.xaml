@@ -17,6 +17,7 @@
                 <MenuFlyoutSeparator/>
                 <MenuFlyoutItem Text="Exit" Click="ExitClick"/>
             </MenuBarItem>
+            <MenuBarItem x:Name="WindowMenu" Title="Window"/>
             <MenuBarItem Title="Help">
                 <MenuFlyoutItem Text="Help" Click="HelpClick"/>
                 <MenuFlyoutItem Text="About" Click="AboutClick"/>
@@ -35,7 +36,7 @@
                 </Grid.ColumnDefinitions>
                 <Border BorderBrush="{ThemeResource DividerStrokeColorDefaultBrush}" BorderThickness="0" Padding="12,0">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center" Spacing="8">
-                        <TextBlock Text="CUDA free" VerticalAlignment="Center"
+                        <TextBlock Text="CUDA free memory" VerticalAlignment="Center"
                                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"/>
                         <TextBlock x:Name="CudaFreeStatus" Text="0.0 MB" VerticalAlignment="Center"/>
                     </StackPanel>

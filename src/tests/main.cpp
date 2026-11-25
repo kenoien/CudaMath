@@ -19,7 +19,7 @@ void locateRepo() {
     GetModuleFileNameW(nullptr, buffer, MAX_PATH);
     std::filesystem::path dir = std::filesystem::path(buffer).parent_path();
     for (int step = 0; step < 8; ++step) {
-        if (std::filesystem::exists(dir / "tests" / "smoke.cm")) {
+        if (std::filesystem::exists(dir / "tests" / "alltests.cm")) {
             std::filesystem::current_path(dir);
             return;
         }
@@ -179,10 +179,7 @@ int main() {
               "print lists a large matrix", listed);
         engine.destroySession(session);
     }
-    checkSuite(engine, "tests/smoke.cm");
-    checkSuite(engine, "tests/commands.cm");
-    checkSuite(engine, "tests/more.cm");
-    checkSuite(engine, "tests/data.cm");
+    checkSuite(engine, "tests/alltests.cm");
     {
         std::ifstream file("tests/_out/big.cma", std::ios::binary);
         std::stringstream buffer;

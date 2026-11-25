@@ -13,6 +13,7 @@
 #include <coroutine>
 #include <algorithm>
 #include <chrono>
+#include <vector>
 #include <cmath>
 #include <cstdio>
 #include <fstream>
@@ -246,6 +247,7 @@ int MainWindow::AddTab(cudamath::Session& session) {
     });
 
     ListView symbols;
+    symbols.FontFamily(consolas);
     symbols.HorizontalAlignment(HorizontalAlignment::Stretch);
     symbols.VerticalAlignment(VerticalAlignment::Stretch);
     symbols.Margin(Thickness{3, 6, 6, 3});
@@ -340,9 +342,21 @@ int MainWindow::AddTab(cudamath::Session& session) {
     titleBar.DoubleTapped([this, id](IInspectable const&, DoubleTappedRoutedEventArgs const&) { ToggleMaximize(id); });
 
     Button timer;
-    timer.Background(SolidColorBrush{Windows::UI::Colors::Transparent()});
-    timer.BorderThickness(Thickness{0});
+    timer.Height(22);
+    timer.MinHeight(22);
+    timer.MinWidth(0);
     timer.Padding(Thickness{10, 0, 10, 0});
+    timer.Margin(Thickness{8, 0, 0, 0});
+    timer.VerticalAlignment(VerticalAlignment::Center);
+    timer.HorizontalAlignment(HorizontalAlignment::Left);
+    timer.Background(themeBrush(L"ControlFillColorDefaultBrush"));
+    timer.BorderBrush(themeBrush(L"ControlStrokeColorDefaultBrush"));
+    timer.BorderThickness(Thickness{1});
+    timer.CornerRadius(CornerRadius{4});
+    timer.Foreground(themeBrush(L"TextFillColorPrimaryBrush"));
+    ToolTip timerTip;
+    timerTip.Content(box_value(L"Turn the timer on or off"));
+    ToolTipService::SetToolTip(timer, timerTip);
     timer.Click([this, id](IInspectable const&, RoutedEventArgs const&) {
         Activate(id);
         auto* tab = Find(id);
@@ -831,6 +845,32 @@ void MainWindow::RefreshStatus() {
         }
     }
     UpdateActivity();
+    RebuildWindowMenu();
+}
+
+void MainWindow::RebuildWindowMenu() {
+    // Clear() notifies a reset, and MenuBarItem ignores that, so the flyout keeps the old entries.
+    auto items = WindowMenu().Items();
+    while (items.Size() > 0) {
+        items.RemoveAt(items.Size() - 1);
+    }
+    for (const auto& entry : tabs_) {
+        MenuFlyoutItem item;
+        item.Text(widen(entry.second.session->title()));
+        if (entry.first == activeId_) {
+            SymbolIcon mark;
+            mark.Symbol(Symbol::Accept);
+            item.Icon(mark);
+        }
+        const int id = entry.first;
+        item.Click([this, id](IInspectable const&, RoutedEventArgs const&) {
+            uiQueue_.TryEnqueue([this, id] {
+                Activate(id);
+                if (auto* tab = Find(id)) tab->input.Focus(FocusState::Programmatic);
+            });
+        });
+        WindowMenu().Items().Append(item);
+    }
 }
 
 void MainWindow::RemoveTab(int id) {

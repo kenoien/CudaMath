@@ -287,25 +287,16 @@ Elapsed 12.345 ms
 
 `ans` is the number of failures. A `.cm` file with no `tests` / `end tests` block is a script. `run 'file.cm'` executes a script in the current workspace. `runtests` rejects a file that is not a suite.
 
-`runtests 'tests/smoke.cm'` is the suite runner.
+`runtests 'tests/alltests.cm'` is the suite runner.
 
 - It snapshots that session's workspace and cuRAND generator, then runs the file in an empty workspace for the same session. Other sessions are left alone.
 - It restores that session after the file finishes, whether the suite passed or failed.
 - The pass, fail, and suite lines come from `expect` and `end tests`, not from a second report by the runner.
 - After the restore, `ans` is still the number of failures.
 
-`CudaMathCli --runtests tests/smoke.cm` runs that command and exits. The process exit code is 0 when every check passed and 1 otherwise. In the GUI, the same command is typed in the REPL. There is no Run menu.
+`CudaMathCli --runtests tests/alltests.cm` runs that command and exits. The process exit code is 0 when every check passed and 1 otherwise. In the GUI, the same command is typed in the REPL. There is no Run menu.
 
-`tests/smoke.cm` is the version 1 suite. It covers:
-
-- `zeros`, `ones`, `eye`, `reshape`, and `size`
-- `int32` addition, exactly
-- `rng`, then `rand` and `randn` shape, class, and range
-- `randi` bounds
-- `A \ A` and `inv(eye(n))` near `eye(n)` for a small well-conditioned matrix
-- `lu`, `chol`, and `svd` reconstruction within tolerance
-- a user `function` called from a test
-- `saveworkspace` and `loadworkspace` of one variable and one function
+`tests/alltests.cm` is the suite. Comments in that file name each section: construction and shape, arithmetic, indexing and control flow, elementwise math, reductions, matrix math and factorizations, random numbers, workspace commands, and workspace and data files. `tests/addone.cm` is a script that suite runs. It is not itself a suite.
 
 ## Timing
 
@@ -367,7 +358,7 @@ The two panes are:
 - That session's REPL: input, history, and printed results. While the input is empty it shows `Enter expression here` in grey italic type. Enter runs the submission. Shift+Enter inserts a line.
 - A list of that session's variables and user functions
 
-The variable list shows name, class, and size. Selecting a function shows its source. Selecting a variable shows its elements; a matrix larger than 24 by 12 shows the first 24 rows and 12 columns. The list refreshes when a submission in that session finishes. The menu bar is File and Help. `runtests`, `timer on`, and `timer off` are typed in that document's REPL. `help` and `?` typed there print the same command text the console prints, into that document. Clicking the timer field on that document's status bar toggles that session's timer.
+The variable list shows one line per name: the name, the class, and the size, the same text `whos` prints. Selecting a function shows its source. Selecting a variable shows its elements; a matrix larger than 24 by 12 shows the first 24 rows and 12 columns. The list refreshes when a submission in that session finishes. The menu bar is File, Window, and Help. Window lists every open document by the same title shown on that document, including the unsaved `*`. The active document is checked. Choosing an entry brings that window to the front and makes it the active document, so File commands apply to it. `runtests`, `timer on`, and `timer off` are typed in that document's REPL. `help` and `?` typed there print the same command text the console prints, into that document. Clicking the Timer button on that document's status bar toggles that session's timer.
 
 ### Large calculations
 
@@ -379,15 +370,15 @@ The variable list, the timer, workspace memory, and CUDA free update when the su
 
 A document window's status bar belongs to that session. It shows the timer, whether that session is running or waiting, and that session's workspace memory. The frame's status bar belongs to the process. It shows CUDA free memory and the CUDA version, and it does not change when a different document becomes active. The frame title shows `Running` while a submission is executing.
 
-Workspace memory and CUDA free refresh once when a REPL submission finishes, success or failure. That is the same moment the timer stops. A `for` loop, a `while` loop, a user function, and `runtests` are one submission, so the bars do not repaint on every inner statement. There is no background poll. `cudaMemGetInfo` also runs once when the window opens, so the frame shows the real free amount before any command. The timer label also refreshes when its field is clicked.
+Workspace memory and CUDA free refresh once when a REPL submission finishes, success or failure. That is the same moment the timer stops. A `for` loop, a `while` loop, a user function, and `runtests` are one submission, so the bars do not repaint on every inner statement. There is no background poll. `cudaMemGetInfo` also runs once when the window opens, so the frame shows the real free amount before any command. The timer button also refreshes when it is clicked.
 
 | Field | Where | Visible text |
 |---|---|---|
 | Title | Document title bar | That session's file name, or `Workspace N` when it has no path. `N` is the smallest positive integer that no other open unsaved workspace is using. A trailing `*` means that session has unsaved changes. |
-| Timer | Document status bar | That session's `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays in this field, for example `Timer on  12.345 ms`. Clicking this field toggles that session. |
+| Timer | Document status bar | A button labeled `Timer on` or `Timer off`. When the timer is on, the last submission's elapsed time stays on the button, for example `Timer on  12.345 ms`. Clicking it toggles that session. |
 | Activity | Document status bar | `Running` while that session's submission is executing on the GPU. `Waiting` while a command in that session is queued behind another submission. The field is absent when the session is idle. |
 | Memory | Document status bar | `Memory` and that session's array bytes, for example `0.0 MB`. |
-| CUDA free | Frame status bar | `CUDA free` and the shared unified pool, for example `8192.0 MB`. |
+| CUDA free | Frame status bar | `CUDA free memory` and the shared unified pool, for example `8192.0 MB`. |
 | CUDA | Frame status bar | The runtime version string that `cudaversion` returns, for example `CUDA 13.4`. |
 
 Memory numbers are megabytes of 1024×1024 bytes, with one decimal place. Document memory is that session's arrays. CUDA free is the shared unified pool. Both are the counts from `memory`, scaled into MB. CUDA total stays on the `memory` command. In a document, `memory` reports that session's workspace bytes and the process CUDA total and free.

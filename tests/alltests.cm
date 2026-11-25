@@ -1,0 +1,1669 @@
+tests 'all'
+
+% Construction and shape. zeros, ones, eye, size, numel, length, ndims, isempty, diag, linspace, repmat, tril, triu, horzcat, and vertcat.
+
+  test 'zeros and eye'
+    expect(zeros(2), [0 0; 0 0])
+    expect(eye(2), [1 0; 0 1])
+    expect(size(eye(3)), [3 3])
+  end
+
+  test 'construction'
+    expect(class(zeros(2, 3)), 'double')
+    expect(class(zeros(2, 3, 'single')), 'single')
+    expect(class(zeros(2, 3, 'int32')), 'int32')
+    expect(class(zeros(2, 3, 'int64')), 'int64')
+    expect(class(ones(2, 'double')), 'double')
+    expect(class(ones(2, 'single')), 'single')
+    expect(class(ones(2, 'int32')), 'int32')
+    expect(class(ones(2, 'int64')), 'int64')
+    expect(class(eye(2)), 'double')
+    expect(class(eye(2, 'single')), 'single')
+    expect(class(eye(2, 'int32')), 'int32')
+    expect(class(eye(2, 'int64')), 'int64')
+    expect(sum(zeros(2, 3), 'all'), 0)
+    expect(sum(zeros(2, 3, 'single'), 'all'), 0)
+    expect(sum(zeros(2, 3, 'int32'), 'all'), int32(0))
+    expect(sum(zeros(2, 3, 'int64'), 'all'), int64(0))
+    expect(sum(ones(2, 2), 'all'), 4)
+    expect(sum(ones(2, 2, 'single'), 'all'), 4)
+    expect(sum(ones(2, 2, 'int32'), 'all'), int32(4))
+    expect(sum(ones(2, 2, 'int64'), 'all'), int64(4))
+    expect(eye(2), [1 0; 0 1])
+    expect(eye(2, 'single'), single([1 0; 0 1]))
+    expect(eye(2, 'int32'), int32([1 0; 0 1]))
+    expect(eye(2, 'int64'), int64([1 0; 0 1]))
+    expect(size(zeros(2, 5, 'int32')), [2 5])
+    expect(size(ones(2, 5, 'single'), 1), 2)
+    expect(size(ones(2, 5, 'int64'), 2), 5)
+    expect(numel(eye(3, 'int32')), 9)
+    expect(length(zeros(2, 5, 'single')), 5)
+    expect(ndims(ones(1, 'int64')), 2)
+    expect(isempty(zeros(0, 1)), 1)
+    expect(isempty(zeros(0, 1, 'single')), 1)
+    expect(isempty(zeros(0, 1, 'int32')), 1)
+    expect(isempty(zeros(0, 1, 'int64')), 1)
+    expect(isempty(ones(1)), 0)
+    expect(isempty(ones(1, 'single')), 0)
+    expect(isempty(ones(1, 'int32')), 0)
+    expect(isempty(ones(1, 'int64')), 0)
+  end
+
+  test 'shape'
+    expect(diag([1 2 3]), [1 0 0; 0 2 0; 0 0 3])
+    expect(diag([1 2; 3 4]), [1; 4])
+    expect(linspace(0, 1, 3), [0 0.5 1])
+    expect(repmat([1 2], 2, 1), [1 2; 1 2])
+    expect(tril([1 2; 3 4]), [1 0; 3 4])
+    expect(triu([1 2; 3 4]), [1 2; 0 4])
+    expect(horzcat([1; 2], [3; 4]), [1 3; 2 4])
+    expect(vertcat([1 2], [3 4]), [1 2; 3 4])
+  end
+
+
+% Arithmetic. Addition, subtraction, elementwise and matrix multiplication, and division for double, single, int32, and int64, including a scalar combined with a row, a column, and a matrix.
+
+  test 'double arithmetic'
+    a = [1 2; 3 4]
+    expect(class(a), 'double')
+    expect(a + a, [2 4; 6 8])
+    expect(a - 1, [0 1; 2 3])
+    expect(a .* 2, [2 4; 6 8])
+    expect(2 * a, [2 4; 6 8])
+    expect(a * 2, [2 4; 6 8])
+    expect(2 * [1 2 3], [2 4 6])
+    expect(2 * [1; 2; 3], [2; 4; 6])
+    expect([1 2 3] * 2, [2 4 6])
+    expect(a ./ 2, [0.5 1; 1.5 2])
+    expect(a * eye(2), a)
+    expect(a', [1 3; 2 4])
+    expect(-a, [-1, -2; -3, -4])
+    expect(abs(a), a)
+    expect(abs([-2 3]), [2 3])
+    expect(sqrt([4 9]), [2 3])
+    expect(sum(a, 'all'), 10)
+    expect(reshape(a, 4, 1), [1; 3; 2; 4])
+    expect(a == a, ones(2))
+    expect(a ~= a, zeros(2))
+    expect(a > 2, [0 0; 1 1])
+    expect(a >= 2, [0 1; 1 1])
+    expect(a < 2, [1 0; 0 0])
+    expect(a <= 2, [1 1; 0 0])
+    expect(class(single(a)), 'single')
+    expect(class(int32(a)), 'int32')
+    expect(class(int64(a)), 'int64')
+    expect(double(single(a)), a)
+  end
+
+  test 'single arithmetic'
+    a = single([1 2; 3 4])
+    expect(class(a), 'single')
+    expect(a + a, single([2 4; 6 8]))
+    expect(a - single(1), single([0 1; 2 3]))
+    expect(a .* single(2), single([2 4; 6 8]))
+    expect(single(2) * a, single([2 4; 6 8]))
+    expect(a * single(2), single([2 4; 6 8]))
+    expect(2 * a, [2 4; 6 8])
+    expect(a ./ single(2), [0.5 1; 1.5 2])
+    expect(a * eye(2, 'single'), a)
+    expect(a', single([1 3; 2 4]))
+    expect(-a, single([-1, -2; -3, -4]))
+    expect(abs(a), [1 2; 3 4])
+    expect(sqrt(single([4 9])), [2 3])
+    expect(sum(a, 'all'), 10)
+    expect(reshape(a, 1, 4), single([1 3 2 4]))
+    expect(a == a, ones(2))
+    expect(a ~= a, zeros(2))
+    expect(class(double(a)), 'double')
+    expect(class(int32(a)), 'int32')
+    expect(class(int64(a)), 'int64')
+    expect(single(double(a)), a)
+  end
+
+  test 'int32 arithmetic'
+    a = int32([1 2; 3 4])
+    expect(class(a), 'int32')
+    expect(a + a, int32([2 4; 6 8]))
+    expect(a - int32(1), int32([0 1; 2 3]))
+    expect(a .* int32(2), int32([2 4; 6 8]))
+    expect(int32(2) * a, [2 4; 6 8])
+    expect(a * int32(2), [2 4; 6 8])
+    expect(a ./ int32(2), [0.5 1; 1.5 2])
+    expect(a * a, [7 10; 15 22])
+    expect(a', int32([1 3; 2 4]))
+    expect(-a, int32([-1, -2; -3, -4]))
+    expect(abs(int32([-2 3])), int32([2 3]))
+    expect(sqrt(int32([4 9])), [2 3])
+    expect(sum(a, 'all'), int32(10))
+    expect(reshape(a, 4, 1), int32([1; 3; 2; 4]))
+    expect(a == a, ones(2))
+    expect(a ~= a, zeros(2))
+    expect(a > int32(2), [0 0; 1 1])
+    expect(class(double(a)), 'double')
+    expect(class(single(a)), 'single')
+    expect(class(int64(a)), 'int64')
+    expect(int32(double(a)), a)
+  end
+
+  test 'int64 arithmetic'
+    a = int64([1 2; 3 4])
+    expect(class(a), 'int64')
+    expect(a + a, int64([2 4; 6 8]))
+    expect(a - int64(1), int64([0 1; 2 3]))
+    expect(a .* int64(2), int64([2 4; 6 8]))
+    expect(int64(2) * a, [2 4; 6 8])
+    expect(a * int64(2), [2 4; 6 8])
+    expect(a ./ int64(2), [0.5 1; 1.5 2])
+    expect(a * a, [7 10; 15 22])
+    expect(a', int64([1 3; 2 4]))
+    expect(-int64(3), int64(-3))
+    expect(abs(int64([-2 3])), int64([2 3]))
+    expect(sqrt(int64([4 9])), [2 3])
+    expect(sum(a, 'all'), int64(10))
+    expect(reshape(a, 4, 1), int64([1; 3; 2; 4]))
+    expect(a == a, ones(2))
+    expect(a < int64(3), [1 1; 0 0])
+    expect(class(double(a)), 'double')
+    expect(class(single(a)), 'single')
+    expect(class(int32(a)), 'int32')
+    expect(int64(int32(a)), a)
+  end
+
+  test 'scalar arithmetic'
+    a = [1 2; 3 4]
+    row = [1 2 3]
+    col = [1; 2; 3]
+    expect(2 * a, [2 4; 6 8])
+    expect(a * 2, [2 4; 6 8])
+    expect(2 * row, [2 4 6])
+    expect(row * 2, [2 4 6])
+    expect(2 * col, [2; 4; 6])
+    expect(col * 2, [2; 4; 6])
+    expect(1 + a, [2 3; 4 5])
+    expect(a + 1, [2 3; 4 5])
+    expect(1 + row, [2 3 4])
+    expect(row + 1, [2 3 4])
+    expect(1 + col, [2; 3; 4])
+    expect(col + 1, [2; 3; 4])
+    expect(1 - a, [0, -1; -2, -3])
+    expect(a - 1, [0 1; 2 3])
+    expect(1 - row, [0, -1, -2])
+    expect(row - 1, [0 1 2])
+    expect(1 - col, [0; -1; -2])
+    expect(col - 1, [0; 1; 2])
+    expect(2 + 3, 5)
+    expect(2 - 3, -1)
+    expect(2 * 3, 6)
+
+    sa = single(a)
+    srow = single(row)
+    scol = single(col)
+    expect(single(2) * sa, single([2 4; 6 8]))
+    expect(sa * single(2), single([2 4; 6 8]))
+    expect(single(2) * srow, single([2 4 6]))
+    expect(srow * single(2), single([2 4 6]))
+    expect(single(2) * scol, single([2; 4; 6]))
+    expect(scol * single(2), single([2; 4; 6]))
+    expect(single(1) + sa, single([2 3; 4 5]))
+    expect(sa + single(1), single([2 3; 4 5]))
+    expect(single(1) + srow, single([2 3 4]))
+    expect(srow + single(1), single([2 3 4]))
+    expect(single(1) + scol, single([2; 3; 4]))
+    expect(scol + single(1), single([2; 3; 4]))
+    expect(single(1) - sa, single([0, -1; -2, -3]))
+    expect(sa - single(1), single([0 1; 2 3]))
+    expect(single(1) - srow, single([0, -1, -2]))
+    expect(srow - single(1), single([0 1 2]))
+    expect(single(1) - scol, single([0; -1; -2]))
+    expect(scol - single(1), single([0; 1; 2]))
+
+    ia = int32(a)
+    irow = int32(row)
+    icol = int32(col)
+    expect(int32(2) * ia, [2 4; 6 8])
+    expect(ia * int32(2), [2 4; 6 8])
+    expect(int32(2) * irow, [2 4 6])
+    expect(irow * int32(2), [2 4 6])
+    expect(int32(2) * icol, [2; 4; 6])
+    expect(icol * int32(2), [2; 4; 6])
+    expect(int32(1) + ia, int32([2 3; 4 5]))
+    expect(ia + int32(1), int32([2 3; 4 5]))
+    expect(int32(1) + irow, int32([2 3 4]))
+    expect(irow + int32(1), int32([2 3 4]))
+    expect(int32(1) + icol, int32([2; 3; 4]))
+    expect(icol + int32(1), int32([2; 3; 4]))
+    expect(int32(1) - ia, int32([0, -1; -2, -3]))
+    expect(ia - int32(1), int32([0 1; 2 3]))
+    expect(int32(1) - irow, int32([0, -1, -2]))
+    expect(irow - int32(1), int32([0 1 2]))
+    expect(int32(1) - icol, int32([0; -1; -2]))
+    expect(icol - int32(1), int32([0; 1; 2]))
+
+    la = int64(a)
+    lrow = int64(row)
+    lcol = int64(col)
+    expect(int64(2) * la, [2 4; 6 8])
+    expect(la * int64(2), [2 4; 6 8])
+    expect(int64(2) * lrow, [2 4 6])
+    expect(lrow * int64(2), [2 4 6])
+    expect(int64(2) * lcol, [2; 4; 6])
+    expect(lcol * int64(2), [2; 4; 6])
+    expect(int64(1) + la, int64([2 3; 4 5]))
+    expect(la + int64(1), int64([2 3; 4 5]))
+    expect(int64(1) + lrow, int64([2 3 4]))
+    expect(lrow + int64(1), int64([2 3 4]))
+    expect(int64(1) + lcol, int64([2; 3; 4]))
+    expect(lcol + int64(1), int64([2; 3; 4]))
+    expect(int64(1) - la, int64([0, -1; -2, -3]))
+    expect(la - int64(1), int64([0 1; 2 3]))
+    expect(int64(1) - lrow, int64([0, -1, -2]))
+    expect(lrow - int64(1), int64([0 1 2]))
+    expect(int64(1) - lcol, int64([0; -1; -2]))
+    expect(lcol - int64(1), int64([0; 1; 2]))
+  end
+
+  test 'int32 addition'
+    expect(int32(3) + int32(4), int32(7))
+  end
+
+
+% Indexing, logic, and control flow. Subscripts, the end keyword, elseif, elementwise logic, for, while, if, and a user function.
+
+  test 'index else and power'
+    a = [1 2; 3 4];
+    expect(a(1, 2), 2)
+    expect(a(2, :), [3 4])
+    expect(a(end, 1), 3)
+    expect(a .^ 2, [1 4; 9 16])
+    flag = 0;
+    if 0
+      flag = 1
+    elseif 1
+      flag = 2
+    else
+      flag = 3
+    end
+    expect(flag, 2)
+    expect(~0, 1)
+    expect([1 0] & [1 1], [1 0])
+    expect([0 1] | [0 0], [0 1])
+  end
+
+  test 'control flow'
+    total = int32(0)
+    for k = 1:4
+      total = total + int32(k)
+    end
+    expect(total, int32(10))
+    n = 0
+    while n < 3
+      n = n + 1
+    end
+    expect(n, 3)
+    flag = 0
+    if ones(1, 'single')
+      flag = 1
+    end
+    expect(flag, 1)
+    if zeros(1, 'int64')
+      flag = 0
+    end
+    expect(flag, 1)
+    function y = addtwo(x)
+      y = x + x
+    end
+    expect(addtwo(2.5), 5)
+    expect(addtwo(single(1.5)), single(3))
+    expect(addtwo(int32(4)), int32(8))
+    expect(addtwo(int64(5)), int64(10))
+  end
+
+  test 'user function'
+    function y = twice(x)
+      y = x + x
+    end
+    expect(twice(3), 6)
+  end
+
+
+% Elementwise math. abs, sign, sqrt, exp, log, log2, log10, sin, cos, tan, asin, acos, atan, atan2, sinh, cosh, tanh, floor, ceil, round, fix, mod, rem, power, plus, minus, times, and rdivide. Each command is tried for double, single, int32, and int64, and for a scalar, a row, a column, and a matrix.
+
+  test 'abs'
+    expect(abs(-2), 2)
+    expect(abs([-2 0 3]), [2 0 3])
+    expect(abs([-2; 0; 3]), [2; 0; 3])
+    expect(abs([-2 0; 3 4]), [2 0; 3 4])
+    expect(abs(single(-2)), 2)
+    expect(abs(single([-2 0 3])), [2 0 3])
+    expect(abs(single([-2; 0; 3])), [2; 0; 3])
+    expect(abs(single([-2 0; 3 4])), [2 0; 3 4])
+    expect(abs(int32(-2)), int32(2))
+    expect(abs(int32([-2 0 3])), int32([2 0 3]))
+    expect(abs(int32([-2; 0; 3])), int32([2; 0; 3]))
+    expect(abs(int32([-2 0; 3 4])), int32([2 0; 3 4]))
+    expect(abs(int64(-2)), int64(2))
+    expect(abs(int64([-2 0 3])), int64([2 0 3]))
+    expect(abs(int64([-2; 0; 3])), int64([2; 0; 3]))
+    expect(abs(int64([-2 0; 3 4])), int64([2 0; 3 4]))
+  end
+
+  test 'sign'
+    expect(sign([-2 0 3]), [-1 0 1])
+    expect(sign([-2; 0; 3]), [-1; 0; 1])
+    expect(sign(0), 0)
+    expect(sign([-2 0; 3, -4]), [-1 0; 1, -1])
+    expect(sign(single([-2 0 3])), single([-1 0 1]))
+    expect(sign(single([-2; 0; 3])), single([-1; 0; 1]))
+    expect(sign(single(0)), single(0))
+    expect(sign(single([-2 0; 3, -4])), single([-1 0; 1, -1]))
+    expect(sign(int32([-2 0 3])), int32([-1 0 1]))
+    expect(sign(int32([-2; 0; 3])), int32([-1; 0; 1]))
+    expect(sign(int32(0)), int32(0))
+    expect(sign(int32([-2 0; 3, -4])), int32([-1 0; 1, -1]))
+    expect(sign(int64([-2 0 3])), int64([-1 0 1]))
+    expect(sign(int64([-2; 0; 3])), int64([-1; 0; 1]))
+    expect(sign(int64(0)), int64(0))
+    expect(sign(int64([-2 0; 3, -4])), int64([-1 0; 1, -1]))
+  end
+
+  test 'sqrt'
+    expect(sqrt(4), 2)
+    expect(sqrt([4 9 16]), [2 3 4])
+    expect(sqrt([4; 9; 16]), [2; 3; 4])
+    expect(sqrt([4 9; 16 25]), [2 3; 4 5])
+    expect(sqrt(single(4)), 2)
+    expect(sqrt(single([4 9 16])), [2 3 4])
+    expect(sqrt(single([4; 9; 16])), [2; 3; 4])
+    expect(sqrt(single([4 9; 16 25])), [2 3; 4 5])
+    expect(sqrt(int32(4)), 2)
+    expect(sqrt(int32([4 9 16])), [2 3 4])
+    expect(sqrt(int32([4; 9; 16])), [2; 3; 4])
+    expect(sqrt(int32([4 9; 16 25])), [2 3; 4 5])
+    expect(sqrt(int64(4)), 2)
+    expect(sqrt(int64([4 9 16])), [2 3 4])
+    expect(sqrt(int64([4; 9; 16])), [2; 3; 4])
+    expect(sqrt(int64([4 9; 16 25])), [2 3; 4 5])
+  end
+
+  test 'exp'
+    expect(exp(0), 1)
+    expect(exp([0 0 0]), [1 1 1])
+    expect(exp([0; 0; 0]), [1; 1; 1])
+    expect(exp(zeros(2)), ones(2))
+    expect(exp(single(0)), single(1))
+    expect(exp(single([0 0 0])), single([1 1 1]))
+    expect(exp(single([0; 0; 0])), single([1; 1; 1]))
+    expect(exp(zeros(2, 'single')), ones(2, 'single'))
+    expect(exp(int32(0)), 1)
+    expect(exp(int32([0 0 0])), [1 1 1])
+    expect(exp(int32([0; 0; 0])), [1; 1; 1])
+    expect(exp(zeros(2, 'int32')), ones(2))
+    expect(exp(int64(0)), 1)
+    expect(exp(int64([0 0 0])), [1 1 1])
+    expect(exp(int64([0; 0; 0])), [1; 1; 1])
+    expect(exp(zeros(2, 'int64')), ones(2))
+  end
+
+  test 'log'
+    expect(log(1), 0)
+    expect(log([1 1 1]), [0 0 0])
+    expect(log([1; 1; 1]), [0; 0; 0])
+    expect(log(ones(2)), zeros(2))
+    expect(log(single(1)), single(0))
+    expect(log(single([1 1 1])), single([0 0 0]))
+    expect(log(single([1; 1; 1])), single([0; 0; 0]))
+    expect(log(ones(2, 'single')), zeros(2, 'single'))
+    expect(log(int32(1)), 0)
+    expect(log(int32([1 1 1])), [0 0 0])
+    expect(log(int32([1; 1; 1])), [0; 0; 0])
+    expect(log(ones(2, 'int32')), zeros(2))
+    expect(log(int64(1)), 0)
+    expect(log(int64([1 1 1])), [0 0 0])
+    expect(log(int64([1; 1; 1])), [0; 0; 0])
+    expect(log(ones(2, 'int64')), zeros(2))
+  end
+
+  test 'log2'
+    expect(log2(1), 0)
+    expect(log2([1 1 1]), [0 0 0])
+    expect(log2([1; 1; 1]), [0; 0; 0])
+    expect(log2(ones(2)), zeros(2))
+    expect(log2(single(1)), single(0))
+    expect(log2(single([1 1 1])), single([0 0 0]))
+    expect(log2(single([1; 1; 1])), single([0; 0; 0]))
+    expect(log2(ones(2, 'single')), zeros(2, 'single'))
+    expect(log2(int32(1)), 0)
+    expect(log2(ones(1, 3, 'int32')), zeros(1, 3))
+    expect(log2(ones(3, 1, 'int32')), zeros(3, 1))
+    expect(log2(ones(2, 'int32')), zeros(2))
+    expect(log2(int64(1)), 0)
+    expect(log2(ones(1, 3, 'int64')), zeros(1, 3))
+    expect(log2(ones(3, 1, 'int64')), zeros(3, 1))
+    expect(log2(ones(2, 'int64')), zeros(2))
+  end
+
+  test 'log10'
+    expect(log10(1), 0)
+    expect(log10([1 1 1]), [0 0 0])
+    expect(log10([1; 1; 1]), [0; 0; 0])
+    expect(log10(ones(2)), zeros(2))
+    expect(log10(single(1)), single(0))
+    expect(log10(single([1 1 1])), single([0 0 0]))
+    expect(log10(single([1; 1; 1])), single([0; 0; 0]))
+    expect(log10(ones(2, 'single')), zeros(2, 'single'))
+    expect(log10(int32(1)), 0)
+    expect(log10(ones(1, 3, 'int32')), zeros(1, 3))
+    expect(log10(ones(3, 1, 'int32')), zeros(3, 1))
+    expect(log10(ones(2, 'int32')), zeros(2))
+    expect(log10(int64(1)), 0)
+    expect(log10(ones(1, 3, 'int64')), zeros(1, 3))
+    expect(log10(ones(3, 1, 'int64')), zeros(3, 1))
+    expect(log10(ones(2, 'int64')), zeros(2))
+  end
+
+  test 'sin'
+    expect(sin(0), 0)
+    expect(sin([0 0 0]), [0 0 0])
+    expect(sin([0; 0; 0]), [0; 0; 0])
+    expect(sin(zeros(2)), zeros(2))
+    expect(sin(single(0)), single(0))
+    expect(sin(zeros(1, 3, 'single')), zeros(1, 3, 'single'))
+    expect(sin(zeros(3, 1, 'single')), zeros(3, 1, 'single'))
+    expect(sin(zeros(2, 'single')), zeros(2, 'single'))
+    expect(sin(int32(0)), 0)
+    expect(sin(zeros(1, 3, 'int32')), zeros(1, 3))
+    expect(sin(zeros(3, 1, 'int32')), zeros(3, 1))
+    expect(sin(zeros(2, 'int32')), zeros(2))
+    expect(sin(int64(0)), 0)
+    expect(sin(zeros(1, 3, 'int64')), zeros(1, 3))
+    expect(sin(zeros(3, 1, 'int64')), zeros(3, 1))
+    expect(sin(zeros(2, 'int64')), zeros(2))
+  end
+
+  test 'cos'
+    expect(cos(0), 1)
+    expect(cos([0 0 0]), [1 1 1])
+    expect(cos([0; 0; 0]), [1; 1; 1])
+    expect(cos(zeros(2)), ones(2))
+    expect(cos(single(0)), single(1))
+    expect(cos(zeros(1, 3, 'single')), ones(1, 3, 'single'))
+    expect(cos(zeros(3, 1, 'single')), ones(3, 1, 'single'))
+    expect(cos(zeros(2, 'single')), ones(2, 'single'))
+    expect(cos(int32(0)), 1)
+    expect(cos(zeros(1, 3, 'int32')), ones(1, 3))
+    expect(cos(zeros(3, 1, 'int32')), ones(3, 1))
+    expect(cos(zeros(2, 'int32')), ones(2))
+    expect(cos(int64(0)), 1)
+    expect(cos(zeros(1, 3, 'int64')), ones(1, 3))
+    expect(cos(zeros(3, 1, 'int64')), ones(3, 1))
+    expect(cos(zeros(2, 'int64')), ones(2))
+  end
+
+  test 'tan'
+    expect(tan(0), 0)
+    expect(tan([0 0 0]), [0 0 0])
+    expect(tan([0; 0; 0]), [0; 0; 0])
+    expect(tan(zeros(2)), zeros(2))
+    expect(tan(single(0)), single(0))
+    expect(tan(zeros(1, 3, 'single')), zeros(1, 3, 'single'))
+    expect(tan(zeros(3, 1, 'single')), zeros(3, 1, 'single'))
+    expect(tan(zeros(2, 'single')), zeros(2, 'single'))
+    expect(tan(int32(0)), 0)
+    expect(tan(zeros(1, 3, 'int32')), zeros(1, 3))
+    expect(tan(zeros(3, 1, 'int32')), zeros(3, 1))
+    expect(tan(zeros(2, 'int32')), zeros(2))
+    expect(tan(int64(0)), 0)
+    expect(tan(zeros(1, 3, 'int64')), zeros(1, 3))
+    expect(tan(zeros(3, 1, 'int64')), zeros(3, 1))
+    expect(tan(zeros(2, 'int64')), zeros(2))
+  end
+
+  test 'asin'
+    expect(asin(0), 0)
+    expect(asin([0 0 0]), [0 0 0])
+    expect(asin([0; 0; 0]), [0; 0; 0])
+    expect(asin(zeros(2)), zeros(2))
+    expect(asin(single(0)), single(0))
+    expect(asin(zeros(1, 3, 'single')), zeros(1, 3, 'single'))
+    expect(asin(zeros(3, 1, 'single')), zeros(3, 1, 'single'))
+    expect(asin(zeros(2, 'single')), zeros(2, 'single'))
+    expect(asin(int32(0)), 0)
+    expect(asin(zeros(1, 3, 'int32')), zeros(1, 3))
+    expect(asin(zeros(3, 1, 'int32')), zeros(3, 1))
+    expect(asin(zeros(2, 'int32')), zeros(2))
+    expect(asin(int64(0)), 0)
+    expect(asin(zeros(1, 3, 'int64')), zeros(1, 3))
+    expect(asin(zeros(3, 1, 'int64')), zeros(3, 1))
+    expect(asin(zeros(2, 'int64')), zeros(2))
+  end
+
+  test 'acos'
+    expect(acos(1), 0)
+    expect(acos([1 1 1]), [0 0 0])
+    expect(acos([1; 1; 1]), [0; 0; 0])
+    expect(acos(ones(2)), zeros(2))
+    expect(acos(single(1)), single(0))
+    expect(acos(ones(1, 3, 'single')), zeros(1, 3, 'single'))
+    expect(acos(ones(3, 1, 'single')), zeros(3, 1, 'single'))
+    expect(acos(ones(2, 'single')), zeros(2, 'single'))
+    expect(acos(int32(1)), 0)
+    expect(acos(ones(1, 3, 'int32')), zeros(1, 3))
+    expect(acos(ones(3, 1, 'int32')), zeros(3, 1))
+    expect(acos(ones(2, 'int32')), zeros(2))
+    expect(acos(int64(1)), 0)
+    expect(acos(ones(1, 3, 'int64')), zeros(1, 3))
+    expect(acos(ones(3, 1, 'int64')), zeros(3, 1))
+    expect(acos(ones(2, 'int64')), zeros(2))
+  end
+
+  test 'atan'
+    expect(atan(0), 0)
+    expect(atan([0 0 0]), [0 0 0])
+    expect(atan([0; 0; 0]), [0; 0; 0])
+    expect(atan(zeros(2)), zeros(2))
+    expect(atan(single(0)), single(0))
+    expect(atan(zeros(1, 3, 'single')), zeros(1, 3, 'single'))
+    expect(atan(zeros(3, 1, 'single')), zeros(3, 1, 'single'))
+    expect(atan(zeros(2, 'single')), zeros(2, 'single'))
+    expect(atan(int32(0)), 0)
+    expect(atan(zeros(1, 3, 'int32')), zeros(1, 3))
+    expect(atan(zeros(3, 1, 'int32')), zeros(3, 1))
+    expect(atan(zeros(2, 'int32')), zeros(2))
+    expect(atan(int64(0)), 0)
+    expect(atan(zeros(1, 3, 'int64')), zeros(1, 3))
+    expect(atan(zeros(3, 1, 'int64')), zeros(3, 1))
+    expect(atan(zeros(2, 'int64')), zeros(2))
+  end
+
+  test 'atan2'
+    expect(atan2(0, 1), 0)
+    expect(atan2([0 0 0], 1), [0 0 0])
+    expect(atan2([0; 0; 0], 1), [0; 0; 0])
+    expect(atan2(zeros(2), 1), zeros(2))
+    expect(atan2(single(0), single(1)), single(0))
+    expect(atan2(zeros(1, 3, 'single'), single(1)), zeros(1, 3, 'single'))
+    expect(atan2(zeros(3, 1, 'single'), single(1)), zeros(3, 1, 'single'))
+    expect(atan2(zeros(2, 'single'), single(1)), zeros(2, 'single'))
+    expect(atan2(int32(0), int32(1)), 0)
+    expect(atan2(zeros(1, 3, 'int32'), int32(1)), zeros(1, 3))
+    expect(atan2(zeros(3, 1, 'int32'), int32(1)), zeros(3, 1))
+    expect(atan2(zeros(2, 'int32'), int32(1)), zeros(2))
+    expect(atan2(int64(0), int64(1)), 0)
+    expect(atan2(zeros(1, 3, 'int64'), int64(1)), zeros(1, 3))
+    expect(atan2(zeros(3, 1, 'int64'), int64(1)), zeros(3, 1))
+    expect(atan2(zeros(2, 'int64'), int64(1)), zeros(2))
+  end
+
+  test 'sinh'
+    expect(sinh(0), 0)
+    expect(sinh([0 0 0]), [0 0 0])
+    expect(sinh([0; 0; 0]), [0; 0; 0])
+    expect(sinh(zeros(2)), zeros(2))
+    expect(sinh(single(0)), single(0))
+    expect(sinh(zeros(1, 3, 'single')), zeros(1, 3, 'single'))
+    expect(sinh(zeros(3, 1, 'single')), zeros(3, 1, 'single'))
+    expect(sinh(zeros(2, 'single')), zeros(2, 'single'))
+    expect(sinh(int32(0)), 0)
+    expect(sinh(zeros(1, 3, 'int32')), zeros(1, 3))
+    expect(sinh(zeros(3, 1, 'int32')), zeros(3, 1))
+    expect(sinh(zeros(2, 'int32')), zeros(2))
+    expect(sinh(int64(0)), 0)
+    expect(sinh(zeros(1, 3, 'int64')), zeros(1, 3))
+    expect(sinh(zeros(3, 1, 'int64')), zeros(3, 1))
+    expect(sinh(zeros(2, 'int64')), zeros(2))
+  end
+
+  test 'cosh'
+    expect(cosh(0), 1)
+    expect(cosh([0 0 0]), [1 1 1])
+    expect(cosh([0; 0; 0]), [1; 1; 1])
+    expect(cosh(zeros(2)), ones(2))
+    expect(cosh(single(0)), single(1))
+    expect(cosh(zeros(1, 3, 'single')), ones(1, 3, 'single'))
+    expect(cosh(zeros(3, 1, 'single')), ones(3, 1, 'single'))
+    expect(cosh(zeros(2, 'single')), ones(2, 'single'))
+    expect(cosh(int32(0)), 1)
+    expect(cosh(zeros(1, 3, 'int32')), ones(1, 3))
+    expect(cosh(zeros(3, 1, 'int32')), ones(3, 1))
+    expect(cosh(zeros(2, 'int32')), ones(2))
+    expect(cosh(int64(0)), 1)
+    expect(cosh(zeros(1, 3, 'int64')), ones(1, 3))
+    expect(cosh(zeros(3, 1, 'int64')), ones(3, 1))
+    expect(cosh(zeros(2, 'int64')), ones(2))
+  end
+
+  test 'tanh'
+    expect(tanh(0), 0)
+    expect(tanh([0 0 0]), [0 0 0])
+    expect(tanh([0; 0; 0]), [0; 0; 0])
+    expect(tanh(zeros(2)), zeros(2))
+    expect(tanh(single(0)), single(0))
+    expect(tanh(zeros(1, 3, 'single')), zeros(1, 3, 'single'))
+    expect(tanh(zeros(3, 1, 'single')), zeros(3, 1, 'single'))
+    expect(tanh(zeros(2, 'single')), zeros(2, 'single'))
+    expect(tanh(int32(0)), 0)
+    expect(tanh(zeros(1, 3, 'int32')), zeros(1, 3))
+    expect(tanh(zeros(3, 1, 'int32')), zeros(3, 1))
+    expect(tanh(zeros(2, 'int32')), zeros(2))
+    expect(tanh(int64(0)), 0)
+    expect(tanh(zeros(1, 3, 'int64')), zeros(1, 3))
+    expect(tanh(zeros(3, 1, 'int64')), zeros(3, 1))
+    expect(tanh(zeros(2, 'int64')), zeros(2))
+  end
+
+  test 'floor'
+    expect(floor(1.9), 1)
+    expect(floor([1.9, -1.1, 0.2]), [1, -2, 0])
+    expect(floor([1.9; -1.1; 0.2]), [1; -2; 0])
+    expect(floor([1.9, -1.1; 0.2, 3]), [1, -2; 0, 3])
+    expect(floor(single(1.9)), single(1))
+    expect(floor(single([1.9, -1.1, 0.2])), single([1, -2, 0]))
+    expect(floor(single([1.9; -1.1; 0.2])), single([1; -2; 0]))
+    expect(floor(single([1.9, -1.1; 0.2, 3])), single([1, -2; 0, 3]))
+    expect(floor(int32(-2)), -2)
+    expect(floor(int32([1, -2, 3])), [1, -2, 3])
+    expect(floor(int32([1; -2; 3])), [1; -2; 3])
+    expect(floor(int32([1, -2; 3, 4])), [1, -2; 3, 4])
+    expect(floor(int64(-2)), -2)
+    expect(floor(int64([1, -2, 3])), [1, -2, 3])
+    expect(floor(int64([1; -2; 3])), [1; -2; 3])
+    expect(floor(int64([1, -2; 3, 4])), [1, -2; 3, 4])
+  end
+
+  test 'ceil'
+    expect(ceil(1.1), 2)
+    expect(ceil([1.1, -1.9, 0.2]), [2, -1, 1])
+    expect(ceil([1.1; -1.9; 0.2]), [2; -1; 1])
+    expect(ceil([1.1, -1.9; 0.2, 3]), [2, -1; 1, 3])
+    expect(ceil(single(1.1)), single(2))
+    expect(ceil(single([1.1, -1.9, 0.2])), single([2, -1, 1]))
+    expect(ceil(single([1.1; -1.9; 0.2])), single([2; -1; 1]))
+    expect(ceil(single([1.1, -1.9; 0.2, 3])), single([2, -1; 1, 3]))
+    expect(ceil(int32(-2)), -2)
+    expect(ceil(int32([1, -2, 3])), [1, -2, 3])
+    expect(ceil(int32([1; -2; 3])), [1; -2; 3])
+    expect(ceil(int32([1, -2; 3, 4])), [1, -2; 3, 4])
+    expect(ceil(int64(-2)), -2)
+    expect(ceil(int64([1, -2, 3])), [1, -2, 3])
+    expect(ceil(int64([1; -2; 3])), [1; -2; 3])
+    expect(ceil(int64([1, -2; 3, 4])), [1, -2; 3, 4])
+  end
+
+  test 'round'
+    expect(round(1.2), 1)
+    expect(round([1.2, -1.2, 2.8]), [1, -1, 3])
+    expect(round([1.2; -1.2; 2.8]), [1; -1; 3])
+    expect(round([1.2, -1.2; 2.8, 4]), [1, -1; 3, 4])
+    expect(round(single(1.2)), single(1))
+    expect(round(single([1.2, -1.2, 2.8])), single([1, -1, 3]))
+    expect(round(single([1.2; -1.2; 2.8])), single([1; -1; 3]))
+    expect(round(single([1.2, -1.2; 2.8, 4])), single([1, -1; 3, 4]))
+    expect(round(int32(-2)), -2)
+    expect(round(int32([1, -2, 3])), [1, -2, 3])
+    expect(round(int32([1; -2; 3])), [1; -2; 3])
+    expect(round(int32([1, -2; 3, 4])), [1, -2; 3, 4])
+    expect(round(int64(-2)), -2)
+    expect(round(int64([1, -2, 3])), [1, -2, 3])
+    expect(round(int64([1; -2; 3])), [1; -2; 3])
+    expect(round(int64([1, -2; 3, 4])), [1, -2; 3, 4])
+  end
+
+  test 'fix'
+    expect(fix(-1.9), -1)
+    expect(fix([1.9, -1.9, 0.2]), [1, -1, 0])
+    expect(fix([1.9; -1.9; 0.2]), [1; -1; 0])
+    expect(fix([1.9, -1.9; 0.2, 3]), [1, -1; 0, 3])
+    expect(fix(single(-1.9)), single(-1))
+    expect(fix(single([1.9, -1.9, 0.2])), single([1, -1, 0]))
+    expect(fix(single([1.9; -1.9; 0.2])), single([1; -1; 0]))
+    expect(fix(single([1.9, -1.9; 0.2, 3])), single([1, -1; 0, 3]))
+    expect(fix(int32(-2)), -2)
+    expect(fix(int32([1, -2, 3])), [1, -2, 3])
+    expect(fix(int32([1; -2; 3])), [1; -2; 3])
+    expect(fix(int32([1, -2; 3, 4])), [1, -2; 3, 4])
+    expect(fix(int64(-2)), -2)
+    expect(fix(int64([1, -2, 3])), [1, -2, 3])
+    expect(fix(int64([1; -2; 3])), [1; -2; 3])
+    expect(fix(int64([1, -2; 3, 4])), [1, -2; 3, 4])
+  end
+
+  test 'mod'
+    expect(mod(5, 3), 2)
+    expect(mod(-5, 3), 1)
+    expect(mod([5 6 7], 3), [2 0 1])
+    expect(mod([5; 6; 7], 3), [2; 0; 1])
+    expect(mod([5 6; 7 8], 3), [2 0; 1 2])
+    expect(mod(5, [2 3; 4 5]), [1 2; 1 0])
+    expect(mod(single(5), single(3)), single(2))
+    expect(mod(single(-5), single(3)), single(1))
+    expect(mod(single([5 6 7]), single(3)), single([2 0 1]))
+    expect(mod(single([5; 6; 7]), single(3)), single([2; 0; 1]))
+    expect(mod(single([5 6; 7 8]), single(3)), single([2 0; 1 2]))
+    expect(mod(int32(5), int32(3)), 2)
+    expect(mod(int32(-5), int32(3)), 1)
+    expect(mod(int32([5 6 7]), int32(3)), [2 0 1])
+    expect(mod(int32([5; 6; 7]), int32(3)), [2; 0; 1])
+    expect(mod(int32([5 6; 7 8]), int32(3)), [2 0; 1 2])
+    expect(mod(int64(5), int64(3)), 2)
+    expect(mod(int64(-5), int64(3)), 1)
+    expect(mod(int64([5 6 7]), int64(3)), [2 0 1])
+    expect(mod(int64([5; 6; 7]), int64(3)), [2; 0; 1])
+    expect(mod(int64([5 6; 7 8]), int64(3)), [2 0; 1 2])
+  end
+
+  test 'rem'
+    expect(rem(5, 3), 2)
+    expect(rem(-5, 3), -2)
+    expect(rem([5, -6, 7], 3), [2, -0, 1])
+    expect(rem([5; -6; 7], 3), [2; 0; 1])
+    expect(rem([5, -6; 7, 8], 3), [2, 0; 1, 2])
+    expect(rem(single(5), single(3)), single(2))
+    expect(rem(single(-5), single(3)), single(-2))
+    expect(rem(single([5, -6, 7]), single(3)), single([2, 0, 1]))
+    expect(rem(single([5; -6; 7]), single(3)), single([2; 0; 1]))
+    expect(rem(single([5, -6; 7, 8]), single(3)), single([2, 0; 1, 2]))
+    expect(rem(int32(5), int32(3)), 2)
+    expect(rem(int32(-5), int32(3)), -2)
+    expect(rem(int32([5, -6, 7]), int32(3)), [2, 0, 1])
+    expect(rem(int32([5; -6; 7]), int32(3)), [2; 0; 1])
+    expect(rem(int32([5, -6; 7, 8]), int32(3)), [2, 0; 1, 2])
+    expect(rem(int64(5), int64(3)), 2)
+    expect(rem(int64(-5), int64(3)), -2)
+    expect(rem(int64([5, -6, 7]), int64(3)), [2, 0, 1])
+    expect(rem(int64([5; -6; 7]), int64(3)), [2; 0; 1])
+    expect(rem(int64([5, -6; 7, 8]), int64(3)), [2, 0; 1, 2])
+  end
+
+  test 'power'
+    expect(2 ^ 3, 8)
+    expect([2 3 4] .^ 2, [4 9 16])
+    expect([2; 3; 4] .^ 2, [4; 9; 16])
+    expect([2 3; 4 5] .^ 2, [4 9; 16 25])
+    expect(2 .^ [1 2 3], [2 4 8])
+    expect(2 .^ [1; 2; 3], [2; 4; 8])
+    expect(2 .^ [1 2; 3 4], [2 4; 8 16])
+    expect(single(2) ^ single(3), single(8))
+    expect(single([2 3 4]) .^ single(2), single([4 9 16]))
+    expect(single([2; 3; 4]) .^ single(2), single([4; 9; 16]))
+    expect(single([2 3; 4 5]) .^ single(2), single([4 9; 16 25]))
+    expect(single(2) .^ single([1 2 3]), single([2 4 8]))
+    expect(single(2) .^ single([1 2; 3 4]), single([2 4; 8 16]))
+    expect(int32(2) ^ int32(3), 8)
+    expect(int32([2 3 4]) .^ int32(2), [4 9 16])
+    expect(int32([2; 3; 4]) .^ int32(2), [4; 9; 16])
+    expect(int32([2 3; 4 5]) .^ int32(2), [4 9; 16 25])
+    expect(int32(2) .^ int32([1 2 3]), [2 4 8])
+    expect(int32(2) .^ int32([1 2; 3 4]), [2 4; 8 16])
+    expect(int64(2) ^ int64(3), 8)
+    expect(int64([2 3 4]) .^ int64(2), [4 9 16])
+    expect(int64([2; 3; 4]) .^ int64(2), [4; 9; 16])
+    expect(int64([2 3; 4 5]) .^ int64(2), [4 9; 16 25])
+    expect(int64(2) .^ int64([1 2 3]), [2 4 8])
+    expect(int64(2) .^ int64([1 2; 3 4]), [2 4; 8 16])
+  end
+
+  test 'plus'
+    expect(1 + 2, 3)
+    expect(1 + [1 2 3], [2 3 4])
+    expect([1 2 3] + 1, [2 3 4])
+    expect(1 + [1; 2; 3], [2; 3; 4])
+    expect(1 + [1 2; 3 4], [2 3; 4 5])
+    expect(single(1) + single([1 2; 3 4]), single([2 3; 4 5]))
+    expect(single([1 2 3]) + single(1), single([2 3 4]))
+    expect(single(1) + single([1; 2; 3]), single([2; 3; 4]))
+    expect(single(1) + single(2), single(3))
+    expect(int32(1) + int32([1 2; 3 4]), int32([2 3; 4 5]))
+    expect(int32([1 2 3]) + int32(1), int32([2 3 4]))
+    expect(int32(1) + int32([1; 2; 3]), int32([2; 3; 4]))
+    expect(int32(1) + int32(2), int32(3))
+    expect(int64(1) + int64([1 2; 3 4]), int64([2 3; 4 5]))
+    expect(int64([1 2 3]) + int64(1), int64([2 3 4]))
+    expect(int64(1) + int64([1; 2; 3]), int64([2; 3; 4]))
+    expect(int64(1) + int64(2), int64(3))
+  end
+
+  test 'minus'
+    expect(2 - 5, -3)
+    expect(1 - [1 2 3], [0, -1, -2])
+    expect([1 2 3] - 1, [0 1 2])
+    expect(1 - [1; 2; 3], [0; -1; -2])
+    expect([1 2; 3 4] - 1, [0 1; 2 3])
+    expect(single(1) - single([1 2; 3 4]), single([0, -1; -2, -3]))
+    expect(single([1 2 3]) - single(1), single([0 1 2]))
+    expect(single(1) - single([1; 2; 3]), single([0; -1; -2]))
+    expect(single(2) - single(5), single(-3))
+    expect(int32(1) - int32([1 2; 3 4]), int32([0, -1; -2, -3]))
+    expect(int32([1 2 3]) - int32(1), int32([0 1 2]))
+    expect(int32(1) - int32([1; 2; 3]), int32([0; -1; -2]))
+    expect(int32(2) - int32(5), int32(-3))
+    expect(int64(1) - int64([1 2; 3 4]), int64([0, -1; -2, -3]))
+    expect(int64([1 2 3]) - int64(1), int64([0 1 2]))
+    expect(int64(1) - int64([1; 2; 3]), int64([0; -1; -2]))
+    expect(int64(2) - int64(5), int64(-3))
+  end
+
+  test 'times'
+    expect([1 2; 3 4] .* 2, [2 4; 6 8])
+    expect(2 .* [1 2 3], [2 4 6])
+    expect([1; 2; 3] .* 2, [2; 4; 6])
+    expect(2 .* 3, 6)
+    expect(single([1 2; 3 4]) .* single(2), single([2 4; 6 8]))
+    expect(single(2) .* single([1 2 3]), single([2 4 6]))
+    expect(single([1; 2; 3]) .* single(2), single([2; 4; 6]))
+    expect(single(2) .* single(3), single(6))
+    expect(int32([1 2; 3 4]) .* int32(2), int32([2 4; 6 8]))
+    expect(int32(2) .* int32([1 2 3]), int32([2 4 6]))
+    expect(int32([1; 2; 3]) .* int32(2), int32([2; 4; 6]))
+    expect(int32(2) .* int32(3), int32(6))
+    expect(int64([1 2; 3 4]) .* int64(2), int64([2 4; 6 8]))
+    expect(int64(2) .* int64([1 2 3]), int64([2 4 6]))
+    expect(int64([1; 2; 3]) .* int64(2), int64([2; 4; 6]))
+    expect(int64(2) .* int64(3), int64(6))
+  end
+
+  test 'rdivide'
+    expect([1 2; 3 4] ./ 2, [0.5 1; 1.5 2])
+    expect([2 4 6] ./ 2, [1 2 3])
+    expect([2; 4; 6] ./ 2, [1; 2; 3])
+    expect(6 ./ 2, 3)
+    expect(single([1 2; 3 4]) ./ single(2), [0.5 1; 1.5 2])
+    expect(single([2 4 6]) ./ single(2), [1 2 3])
+    expect(single([2; 4; 6]) ./ single(2), [1; 2; 3])
+    expect(single(6) ./ single(2), 3)
+    expect(int32([1 2; 3 4]) ./ int32(2), [0.5 1; 1.5 2])
+    expect(int32([2 4 6]) ./ int32(2), [1 2 3])
+    expect(int32([2; 4; 6]) ./ int32(2), [1; 2; 3])
+    expect(int32(6) ./ int32(2), 3)
+    expect(int64([1 2; 3 4]) ./ int64(2), [0.5 1; 1.5 2])
+    expect(int64([2 4 6]) ./ int64(2), [1 2 3])
+    expect(int64([2; 4; 6]) ./ int64(2), [1; 2; 3])
+    expect(int64(6) ./ int64(2), 3)
+  end
+
+
+% Reductions. A short sample of elementwise calls and reductions, then sum, prod, mean, min, max, any, all, norm, dot, and trace for the same types and shapes.
+
+  test 'elementwise and reductions'
+    expect(sign(int32([-2 0 3])), int32([-1 0 1]))
+    expect(exp(0), 1)
+    expect(log(1), 0)
+    expect(sin(0), 0)
+    expect(floor(1.9), 1)
+    expect(fix(-1.9), -1)
+    expect(mod(5, 3), 2)
+    expect(rem(-5, 3), -2)
+    expect(sum([1 2; 3 4]), [4 6])
+    expect(prod([1 2; 3 4], 2), [2; 12])
+    expect(mean([1 3; 5 7]), [3 5])
+    expect(min([1 4; 3 2]), [1 2])
+    expect(max([1 4; 0 2]), [1 4])
+    expect(any([0 1; 0 0]), [0 1])
+    expect(all([1 1; 0 1]), [0 1])
+    expect(dot([1 2 3], [1 0 1]), 4)
+    expect(cross([1 0 0], [0 1 0]), [0 0 1])
+    expect(trace([1 2; 3 4]), 5)
+    expect(norm([3 4]), 5)
+    expect(norm(eye(2), 'fro'), sqrt(2))
+  end
+
+  test 'sum'
+    expect(sum(6), 6)
+    expect(sum([1 2 3]), [1 2 3])
+    expect(sum([1; 2; 3]), 6)
+    expect(sum([1 2; 3 4]), [4 6])
+    expect(sum([1 2; 3 4], 2), [3; 7])
+    expect(sum([1 2; 3 4], 'all'), 10)
+    expect(sum(single(6)), 6)
+    expect(sum(single([1 2 3])), [1 2 3])
+    expect(sum(single([1; 2; 3])), 6)
+    expect(sum(single([1 2; 3 4])), [4 6])
+    expect(sum(single([1 2; 3 4]), 'all'), 10)
+    expect(sum(int32(6)), int32(6))
+    expect(sum(int32([1 2 3])), int32([1 2 3]))
+    expect(sum(int32([1; 2; 3])), int32(6))
+    expect(sum(int32([1 2; 3 4])), int32([4 6]))
+    expect(sum(int32([1 2; 3 4]), 2), int32([3; 7]))
+    expect(sum(int32([1 2; 3 4]), 'all'), int32(10))
+    expect(sum(int64(6)), int64(6))
+    expect(sum(int64([1 2 3])), int64([1 2 3]))
+    expect(sum(int64([1; 2; 3])), int64(6))
+    expect(sum(int64([1 2; 3 4])), int64([4 6]))
+    expect(sum(int64([1 2; 3 4]), 2), int64([3; 7]))
+    expect(sum(int64([1 2; 3 4]), 'all'), int64(10))
+  end
+
+  test 'prod'
+    expect(prod(6), 6)
+    expect(prod([1 2 3]), [1 2 3])
+    expect(prod([1; 2; 3]), 6)
+    expect(prod([1 2; 3 4]), [3 8])
+    expect(prod([1 2; 3 4], 2), [2; 12])
+    expect(prod([1 2; 3 4], 'all'), 24)
+    expect(prod(single([1 2; 3 4])), [3 8])
+    expect(prod(single([1; 2; 3])), 6)
+    expect(prod(single([1 2 3])), [1 2 3])
+    expect(prod(single(6)), 6)
+    expect(prod(int32(6)), int32(6))
+    expect(prod(int32([1 2 3])), int32([1 2 3]))
+    expect(prod(int32([1; 2; 3])), int32(6))
+    expect(prod(int32([1 2; 3 4])), int32([3 8]))
+    expect(prod(int32([1 2; 3 4]), 'all'), int32(24))
+    expect(prod(int64(6)), int64(6))
+    expect(prod(int64([1 2 3])), int64([1 2 3]))
+    expect(prod(int64([1; 2; 3])), int64(6))
+    expect(prod(int64([1 2; 3 4])), int64([3 8]))
+    expect(prod(int64([1 2; 3 4]), 'all'), int64(24))
+  end
+
+  test 'mean'
+    expect(mean(6), 6)
+    expect(mean([1 2 3]), [1 2 3])
+    expect(mean([1; 2; 3]), 2)
+    expect(mean([1 3; 5 7]), [3 5])
+    expect(mean([1 3; 5 7], 'all'), 4)
+    expect(mean(single([1 3; 5 7])), [3 5])
+    expect(mean(single([1; 2; 3])), 2)
+    expect(mean(single([1 2 3])), [1 2 3])
+    expect(mean(int32([1 3; 5 7])), [3 5])
+    expect(mean(int32([1; 2; 3])), 2)
+    expect(mean(int32([1 2 3])), [1 2 3])
+    expect(mean(int32(6)), 6)
+    expect(mean(int64([1 3; 5 7])), [3 5])
+    expect(mean(int64([1; 2; 3])), 2)
+    expect(mean(int64([1 2 3])), [1 2 3])
+    expect(mean(int64(6)), 6)
+  end
+
+  test 'min'
+    expect(min(4), 4)
+    expect(min([3 1 2]), [3 1 2])
+    expect(min([3; 1; 2]), 1)
+    expect(min([1 4; 3 2]), [1 2])
+    expect(min([1 4; 3 2], 2), [1 2; 2 2])
+    expect(min([1 4; 3 2], [], 2), [1; 2])
+    expect(min(single([1 4; 3 2])), single([1 2]))
+    expect(min(single([3; 1; 2])), single(1))
+    expect(min(single([3 1 2]), single(2)), single([2 1 2]))
+    expect(min(int32([1 4; 3 2])), int32([1 2]))
+    expect(min(int32([3; 1; 2])), int32(1))
+    expect(min(int32([3 1 2]), int32(2)), int32([2 1 2]))
+    expect(min(int32(4), int32([1 5; 2 0])), int32([1 4; 2 0]))
+    expect(min(int64([1 4; 3 2])), int64([1 2]))
+    expect(min(int64([3; 1; 2])), int64(1))
+    expect(min(int64(2), int64([3 1 4])), int64([2 1 2]))
+  end
+
+  test 'max'
+    expect(max(4), 4)
+    expect(max([3 1 2]), [3 1 2])
+    expect(max([3; 1; 2]), 3)
+    expect(max([1 4; 0 2]), [1 4])
+    expect(max([1 4; 0 2], 2), [2 4; 2 2])
+    expect(max([1 4; 0 2], [], 2), [4; 2])
+    expect(max(single([1 4; 0 2])), single([1 4]))
+    expect(max(single([3; 1; 2])), single(3))
+    expect(max(single([3 1 2]), single(2)), single([3 2 2]))
+    expect(max(int32([1 4; 0 2])), int32([1 4]))
+    expect(max(int32([3; 1; 2])), int32(3))
+    expect(max(int32([3 1 2]), int32(2)), int32([3 2 2]))
+    expect(max(int64([1 4; 0 2])), int64([1 4]))
+    expect(max(int64([3; 1; 2])), int64(3))
+    expect(max(int64([3 1 2]), int64(2)), int64([3 2 2]))
+    expect(max(4, [1 5; 0 2]), [4 5; 4 4])
+  end
+
+  test 'any'
+    expect(any(0), 0)
+    expect(any(1), 1)
+    expect(any([0 1 0]), [0 1 0])
+    expect(any([0; 1; 0]), 1)
+    expect(any([0 1; 0 0]), [0 1])
+    expect(any(single([0 1; 0 0])), [0 1])
+    expect(any(single([0; 0; 0])), 0)
+    expect(any(single([0 0 1])), [0 0 1])
+    expect(any(int32([0 1; 0 0])), [0 1])
+    expect(any(int32([0; 1; 0])), 1)
+    expect(any(int32(0)), 0)
+    expect(any(int64([0 1; 0 0])), [0 1])
+    expect(any(int64([0 0 0])), [0 0 0])
+    expect(any(int64(2)), 1)
+  end
+
+  test 'all'
+    expect(all(0), 0)
+    expect(all(1), 1)
+    expect(all([1 1 0]), [1 1 0])
+    expect(all([1; 1; 0]), 0)
+    expect(all([1 1; 0 1]), [0 1])
+    expect(all(single([1 1; 0 1])), [0 1])
+    expect(all(single([1; 2; 3])), 1)
+    expect(all(single([1 1 1])), [1 1 1])
+    expect(all(int32([1 1; 0 1])), [0 1])
+    expect(all(int32([1; 0; 1])), 0)
+    expect(all(int32(4)), 1)
+    expect(all(int64([1 1; 0 1])), [0 1])
+    expect(all(int64([1 2 3])), [1 1 1])
+    expect(all(int64(0)), 0)
+  end
+
+  test 'norm'
+    expect(norm(5), 5)
+    expect(norm(-3), 3)
+    expect(norm([3 4]), 5)
+    expect(norm([3; 4]), 5)
+    expect(norm([3 0; 0 4]), 4)
+    expect(norm([3 0; 0 4], 'fro'), 5)
+    expect(norm([1 2; 3 4], 1), 6)
+    expect(norm([1 2; 3 4], 'inf'), 7)
+    expect(norm(single([3 4])), single(5))
+    expect(norm(single([3; 4])), single(5))
+    expect(norm(single([3 0; 0 4])), 4)
+    expect(norm(single([3 0; 0 4]), 'fro'), 5)
+    expect(norm(int32([3 4])), 5)
+    expect(norm(int32([3; 4])), 5)
+    expect(norm(int32([3 0; 0 4]), 'fro'), 5)
+    expect(norm(int64([3 4])), 5)
+    expect(norm(int64([3; 4])), 5)
+    expect(norm(int64([1 2; 3 4]), 1), 6)
+  end
+
+  test 'dot'
+    expect(dot(3, 4), 12)
+    expect(dot([1 2 3], [1 0 1]), 4)
+    expect(dot([1; 2; 3], [1; 0; 1]), 4)
+    expect(dot(single(3), single(4)), single(12))
+    expect(dot(single([1 2 3]), single([1 0 1])), single(4))
+    expect(dot(single([1; 2; 3]), single([1; 0; 1])), single(4))
+    expect(dot(int32(3), int32(4)), 12)
+    expect(dot(int32([1 2 3]), int32([1 0 1])), 4)
+    expect(dot(int32([1; 2; 3]), int32([1; 0; 1])), 4)
+    expect(dot(int64(3), int64(4)), 12)
+    expect(dot(int64([1 2 3]), int64([1 0 1])), 4)
+    expect(dot(int64([1; 2; 3]), int64([1; 0; 1])), 4)
+  end
+
+  test 'trace'
+    expect(trace(7), 7)
+    expect(trace([1 2 3; 4 5 6]), 6)
+    expect(trace([1 2; 3 4]), 5)
+    expect(trace(single(7)), 7)
+    expect(trace(single([1 2; 3 4])), 5)
+    expect(trace(single([1 2 3; 4 5 6])), 6)
+    expect(trace(int32(7)), int32(7))
+    expect(trace(int32([1 2; 3 4])), int32(5))
+    expect(trace(int32([1 2 3; 4 5 6])), int32(6))
+    expect(trace(int64(7)), int64(7))
+    expect(trace(int64([1 2; 3 4])), int64(5))
+    expect(trace(int64([1 2 3; 4 5 6])), int64(6))
+  end
+
+
+% Matrix math and factorizations. mtimes, cross, mldivide, mrdivide, inv, det, rank, lu, qr, chol, svd, eig, and transpose, for the same types and shapes. The solvers block also checks a small reconstruction for each factorization.
+
+  test 'solvers'
+    expect(det([1 2; 3 4]), -2)
+    expect(inv(eye(2)), eye(2))
+    expect(rank(eye(3)), 3)
+    expect(rank(zeros(2)), 0)
+    a = [4 1; 2 3];
+    expect(a \ a, eye(2))
+    expect(a / a, eye(2))
+    [L, U, P] = lu(a);
+    expect(P * a, L * U)
+    [Q, R] = qr(eye(2));
+    expect(Q, eye(2))
+    expect(R, eye(2))
+    expect(chol(eye(2)), eye(2))
+    expect(svd(eye(2)), [1; 1])
+    expect(eig(eye(2)), [1; 1])
+    expect(randi(1, 2, 2), ones(2))
+  end
+
+  test 'mtimes'
+    expect(2 * 3, 6)
+    expect(2 * [1 2 3], [2 4 6])
+    expect([1 2 3] * 2, [2 4 6])
+    expect(2 * [1; 2; 3], [2; 4; 6])
+    expect([1; 2; 3] * 2, [2; 4; 6])
+    expect(2 * [1 2; 3 4], [2 4; 6 8])
+    expect([1 2; 3 4] * 2, [2 4; 6 8])
+    expect([1 2 3] * [1; 2; 3], 14)
+    expect([1; 2; 3] * [1 2 3], [1 2 3; 2 4 6; 3 6 9])
+    expect([1 2; 3 4] * [1 2; 3 4], [7 10; 15 22])
+    expect(single(2) * single([1 2; 3 4]), single([2 4; 6 8]))
+    expect(single([1 2; 3 4]) * single(2), single([2 4; 6 8]))
+    expect(single([1 2 3]) * single([1; 2; 3]), single(14))
+    expect(single([1; 2]) * single([3 4]), single([3 4; 6 8]))
+    expect(single([1 2; 3 4]) * single([1 2; 3 4]), single([7 10; 15 22]))
+    expect(int32(2) * int32([1 2; 3 4]), [2 4; 6 8])
+    expect(int32([1 2 3]) * int32([1; 2; 3]), 14)
+    expect(int32([1 2; 3 4]) * int32([1 2; 3 4]), [7 10; 15 22])
+    expect(int32([1; 2; 3]) * int32(2), [2; 4; 6])
+    expect(int64(2) * int64([1 2; 3 4]), [2 4; 6 8])
+    expect(int64([1 2 3]) * int64(2), [2 4 6])
+    expect(int64([1; 2; 3]) * int64([1 2 3]), [1 2 3; 2 4 6; 3 6 9])
+    expect(int64([1 2; 3 4]) * int64([1 2; 3 4]), [7 10; 15 22])
+  end
+
+  test 'cross'
+    expect(cross([1 0 0], [0 1 0]), [0 0 1])
+    expect(cross([1; 0; 0], [0; 1; 0]), [0; 0; 1])
+    expect(cross(single([1 0 0]), single([0 1 0])), [0 0 1])
+    expect(cross(single([1; 0; 0]), single([0; 1; 0])), [0; 0; 1])
+    expect(cross(int32([1 0 0]), int32([0 1 0])), [0 0 1])
+    expect(cross(int32([0; 1; 0]), int32([0; 0; 1])), [1; 0; 0])
+    expect(cross(int64([1 0 0]), int64([0 1 0])), [0 0 1])
+    expect(cross(int64([0; 0; 1]), int64([1; 0; 0])), [0; 1; 0])
+  end
+
+  test 'mldivide'
+    expect(4 \ 8, 2)
+    expect([4 1; 2 3] \ [5; 5], [1; 1])
+    expect([4 1; 2 3] \ [4 1; 2 3], eye(2))
+    expect(single(4) \ single(8), single(2))
+    expect(single([4 1; 2 3]) \ single([5; 5]), single([1; 1]))
+    expect(single([4 1; 2 3]) \ single([4 1; 2 3]), eye(2, 'single'))
+    expect(int32(4) \ int32(8), 2)
+    expect(int32([4 1; 2 3]) \ int32([5; 5]), [1; 1])
+    expect(int32([4 1; 2 3]) \ int32([4 1; 2 3]), eye(2))
+    expect(int64(4) \ int64(8), 2)
+    expect(int64([4 1; 2 3]) \ int64([5; 5]), [1; 1])
+    expect(int64([4 1; 2 3]) \ int64([4 1; 2 3]), eye(2))
+  end
+
+  test 'mrdivide'
+    expect(8 / 4, 2)
+    expect([4 1; 2 3] / [4 1; 2 3], eye(2))
+    expect([5 5] / [4 2; 1 3], [1 1])
+    expect(single(8) / single(4), single(2))
+    expect(single([4 1; 2 3]) / single([4 1; 2 3]), eye(2, 'single'))
+    expect(single([5 5]) / single([4 2; 1 3]), single([1 1]))
+    expect(int32(8) / int32(4), 2)
+    expect(int32([4 1; 2 3]) / int32([4 1; 2 3]), eye(2))
+    expect(int32([5 5]) / int32([4 2; 1 3]), [1 1])
+    expect(int64(8) / int64(4), 2)
+    expect(int64([4 1; 2 3]) / int64([4 1; 2 3]), eye(2))
+    expect(int64([5 5]) / int64([4 2; 1 3]), [1 1])
+  end
+
+  test 'inv'
+    expect(inv(4), 0.25)
+    expect(inv(eye(2)), eye(2))
+    expect(inv([4 1; 2 3]), [0.3, -0.1; -0.2, 0.4])
+    expect(inv(single(4)), single(0.25))
+    expect(inv(eye(2, 'single')), eye(2, 'single'))
+    expect(inv(single([4 1; 2 3])), single([0.3, -0.1; -0.2, 0.4]))
+    expect(inv(int32(4)), 0.25)
+    expect(inv(eye(2, 'int32')), eye(2))
+    expect(inv(int32([4 1; 2 3])), [0.3, -0.1; -0.2, 0.4])
+    expect(inv(int64(4)), 0.25)
+    expect(inv(eye(2, 'int64')), eye(2))
+    expect(inv(int64([4 1; 2 3])), [0.3, -0.1; -0.2, 0.4])
+  end
+
+  test 'det'
+    expect(det(4), 4)
+    expect(det(eye(2)), 1)
+    expect(det([1 2; 3 4]), -2)
+    expect(det(single(4)), single(4))
+    expect(det(eye(2, 'single')), single(1))
+    expect(det(single([1 2; 3 4])), single(-2))
+    expect(det(int32(4)), 4)
+    expect(det(eye(2, 'int32')), 1)
+    expect(det(int32([1 2; 3 4])), -2)
+    expect(det(int64(4)), 4)
+    expect(det(eye(2, 'int64')), 1)
+    expect(det(int64([1 2; 3 4])), -2)
+  end
+
+  test 'rank'
+    expect(rank(0), 0)
+    expect(rank(5), 1)
+    expect(rank(zeros(2)), 0)
+    expect(rank(eye(3)), 3)
+    expect(rank(single(0)), 0)
+    expect(rank(single(5)), 1)
+    expect(rank(zeros(2, 'single')), 0)
+    expect(rank(eye(3, 'single')), 3)
+    expect(rank(int32(0)), 0)
+    expect(rank(int32(5)), 1)
+    expect(rank(zeros(2, 'int32')), 0)
+    expect(rank(eye(3, 'int32')), 3)
+    expect(rank(int64(0)), 0)
+    expect(rank(int64(5)), 1)
+    expect(rank(zeros(2, 'int64')), 0)
+    expect(rank(eye(3, 'int64')), 3)
+  end
+
+  test 'lu'
+    a = [4 1; 2 3]
+    [L, U, P] = lu(a)
+    expect(P * a, L * U)
+    [L, U, P] = lu(single(a))
+    expect(P * single(a), L * U)
+    [L, U, P] = lu(int32(a))
+    expect(P * int32(a), L * U)
+    [L, U, P] = lu(int64(a))
+    expect(P * int64(a), L * U)
+    [L, U, P] = lu(eye(3))
+    expect(P * eye(3), L * U)
+    [L, U, P] = lu(eye(3, 'single'))
+    expect(P * eye(3, 'single'), L * U)
+    [L, U, P] = lu(4)
+    expect(P * 4, L * U)
+    [L, U, P] = lu(single(4))
+    expect(P * single(4), L * U)
+  end
+
+  test 'qr'
+    [Q, R] = qr(eye(2))
+    expect(Q * R, eye(2))
+    [Q, R] = qr(eye(2, 'single'))
+    expect(Q * R, eye(2, 'single'))
+    [Q, R] = qr(eye(2, 'int32'))
+    expect(Q * R, eye(2))
+    [Q, R] = qr(eye(2, 'int64'))
+    expect(Q * R, eye(2))
+    [Q, R] = qr([4 1; 2 3])
+    expect(Q * R, [4 1; 2 3])
+    [Q, R] = qr(single([4 1; 2 3]))
+    expect(Q * R, single([4 1; 2 3]))
+    [Q, R] = qr(int32([4 1; 2 3]))
+    expect(Q * R, [4 1; 2 3])
+    [Q, R] = qr(4)
+    expect(Q * R, 4)
+  end
+
+  test 'chol'
+    expect(chol(4), 2)
+    expect(chol(eye(2)), eye(2))
+    expect(chol([4 0; 0 9]), [2 0; 0 3])
+    expect(chol(single(4)), single(2))
+    expect(chol(eye(2, 'single')), eye(2, 'single'))
+    expect(chol(single([4 0; 0 9])), single([2 0; 0 3]))
+    expect(chol(int32(4)), 2)
+    expect(chol(eye(2, 'int32')), eye(2))
+    expect(chol(int32([4 0; 0 9])), [2 0; 0 3])
+    expect(chol(int64(4)), 2)
+    expect(chol(eye(2, 'int64')), eye(2))
+    expect(chol(int64([4 0; 0 9])), [2 0; 0 3])
+  end
+
+  test 'svd'
+    expect(svd(5), 5)
+    expect(svd(eye(2)), [1; 1])
+    expect(sum(svd(diag([3 4])) .^ 2), 25)
+    expect(svd(single(5)), single(5))
+    expect(svd(eye(2, 'single')), single([1; 1]))
+    expect(sum(svd(diag(single([3 4]))) .^ 2), 25)
+    expect(svd(int32(5)), 5)
+    expect(svd(eye(2, 'int32')), [1; 1])
+    expect(sum(svd(diag(int32([3 4]))) .^ 2), 25)
+    expect(svd(int64(5)), 5)
+    expect(svd(eye(2, 'int64')), [1; 1])
+    expect(sum(svd(diag(int64([3 4]))) .^ 2), 25)
+  end
+
+  test 'eig'
+    expect(eig(5), 5)
+    expect(eig(eye(2)), [1; 1])
+    expect(sum(eig(diag([2 5]))), 7)
+    expect(prod(eig(diag([2 5]))), 10)
+    expect(eig(single(5)), single(5))
+    expect(eig(eye(2, 'single')), single([1; 1]))
+    expect(sum(eig(diag(single([2 5])))), 7)
+    expect(eig(int32(5)), 5)
+    expect(eig(eye(2, 'int32')), [1; 1])
+    expect(sum(eig(diag(int32([2 5])))), 7)
+    expect(eig(int64(5)), 5)
+    expect(eig(eye(2, 'int64')), [1; 1])
+    expect(prod(eig(diag(int64([2 5])))), 10)
+  end
+
+  test 'transpose'
+    scalar = 4
+    row = [1 2 3]
+    col = [1; 2; 3]
+    box = [1 2; 3 4]
+    expect(scalar', scalar)
+    expect(row', col)
+    expect(col', row)
+    expect(box', [1 3; 2 4])
+    scalar = single(4)
+    row = single([1 2 3])
+    col = single([1; 2; 3])
+    box = single([1 2; 3 4])
+    expect(scalar', scalar)
+    expect(row', col)
+    expect(col', row)
+    expect(box', single([1 3; 2 4]))
+    scalar = int32(4)
+    row = int32([1 2 3])
+    col = int32([1; 2; 3])
+    box = int32([1 2; 3 4])
+    expect(scalar', scalar)
+    expect(row', col)
+    expect(col', row)
+    expect(box', int32([1 3; 2 4]))
+    scalar = int64(4)
+    row = int64([1 2 3])
+    col = int64([1; 2; 3])
+    box = int64([1 2; 3 4])
+    expect(scalar.', scalar)
+    expect(row.', col)
+    expect(col.', row)
+    expect(box.', int64([1 3; 2 4]))
+  end
+
+
+% Random numbers. rand, randn, and randi shape, class, and a repeated seed. An integer type asked of rand or randn stays double. randi returns single, int32, and int64.
+
+  test 'random'
+    rng(1)
+    expect(rng(), 1)
+    r = rand(2, 2)
+    expect(class(r), 'double')
+    expect(size(r), [2 2])
+    expect(r > 0, ones(2))
+    expect(r <= 1, ones(2))
+    s = rand(2, 2, 'single')
+    expect(class(s), 'single')
+    expect(size(s), [2 2])
+    expect(s > 0, ones(2))
+    expect(s <= 1, ones(2))
+    expect(class(rand(1, 2, 'int32')), 'double')
+    expect(class(rand(1, 2, 'int64')), 'double')
+    n = randn(1, 4)
+    expect(class(n), 'double')
+    expect(size(n), [1 4])
+    ns = randn(3, 1, 'single')
+    expect(class(ns), 'single')
+    expect(size(ns), [3 1])
+    expect(rng(), 1)
+  end
+
+  test 'rand'
+    rng(11)
+    a = rand(1)
+    rng(11)
+    expect(rand(1), a)
+    expect(size(a), [1 1])
+    expect(a > 0, 1)
+    expect(a <= 1, 1)
+    row = rand(1, 3)
+    expect(size(row), [1 3])
+    expect(row > 0, ones(1, 3))
+    expect(row <= 1, ones(1, 3))
+    col = rand(3, 1)
+    expect(size(col), [3 1])
+    expect(col > 0, ones(3, 1))
+    box = rand(2, 2)
+    expect(size(box), [2 2])
+    expect(box > 0, ones(2))
+    rng(12)
+    s = rand(2, 3, 'single')
+    rng(12)
+    expect(rand(2, 3, 'single'), s)
+    expect(class(s), 'single')
+    expect(rand(1, 'single') > 0, 1)
+    expect(size(rand(1, 4, 'single')), [1 4])
+    expect(size(rand(4, 1, 'single')), [4 1])
+    expect(class(rand(2, 2, 'int32')), 'double')
+    expect(class(rand(1, 3, 'int64')), 'double')
+    expect(size(rand(2, 'int32')), [2 2])
+    expect(rand(3, 1, 'int64') > 0, ones(3, 1))
+  end
+
+  test 'randn'
+    rng(21)
+    a = randn(1)
+    rng(21)
+    expect(randn(1), a)
+    expect(size(a), [1 1])
+    expect(size(randn(1, 3)), [1 3])
+    expect(size(randn(3, 1)), [3 1])
+    expect(size(randn(2, 2)), [2 2])
+    rng(22)
+    s = randn(2, 2, 'single')
+    rng(22)
+    expect(randn(2, 2, 'single'), s)
+    expect(class(s), 'single')
+    expect(size(randn(1, 'single')), [1 1])
+    expect(size(randn(1, 4, 'single')), [1 4])
+    expect(size(randn(4, 1, 'single')), [4 1])
+    expect(class(randn(2, 2, 'int32')), 'double')
+    expect(class(randn(1, 2, 'int64')), 'double')
+    expect(size(randn(3, 1, 'int32')), [3 1])
+    expect(size(randn(1, 3, 'int64')), [1 3])
+  end
+
+  test 'randi'
+    expect(randi(1, 1), 1)
+    expect(randi(1, 1, 3), [1 1 1])
+    expect(randi(1, 3, 1), [1; 1; 1])
+    expect(randi(1, 2, 2), ones(2))
+    expect(randi([4 4], 1, 3), [4 4 4])
+    expect(class(randi(3, 2, 2, 'single')), 'single')
+    expect(randi(1, 2, 2, 'single'), ones(2, 'single'))
+    expect(size(randi(5, 1, 'single')), [1 1])
+    expect(size(randi(5, 1, 4, 'single')), [1 4])
+    expect(randi(1, 3, 1, 'int32'), int32(ones(3, 1)))
+    expect(class(randi(6, 2, 2, 'int32')), 'int32')
+    expect(randi([2 2], 1, 3, 'int32'), int32([2 2 2]))
+    sample = randi(4, 2, 2, 'int32');
+    expect(min(sample) >= 1, [1 1])
+    expect(max(sample) <= 4, [1 1])
+    expect(randi(1, 1, 'int64'), int64(1))
+    expect(randi(1, 1, 3, 'int64'), int64([1 1 1]))
+    expect(class(randi(7, 2, 3, 'int64')), 'int64')
+    expect(randi([0 0], 2, 2, 'int64'), int64(zeros(2)))
+  end
+
+
+% Workspace commands. timer, cudaversion, memory, who, whos, clear, running a script, print, and a function with two outputs.
+
+  test 'commands'
+    timer off
+    expect(ans, 'timer off')
+    timer
+    expect(ans, 'timer off')
+    timer on
+    expect(ans, 'timer on')
+    timer off
+    expect(ans, 'timer off')
+    cudaversion
+    expect(class(ans), 'char')
+    memory
+    measured = ans
+    expect(class(measured), 'double')
+    expect(size(measured), [3 1])
+    expect(sum(measured) > 0, 1)
+    clear
+    x = int64(5)
+    who
+    expect(class(ans), 'char')
+    whos
+    expect(class(ans), 'char')
+    clear x
+    who
+    expect(class(ans), 'char')
+  end
+
+  test 'run script'
+    added = 2.25
+    run 'tests/addone.cm'
+    expect(added, 4.5)
+    added = single(1.5)
+    run 'tests/addone.cm'
+    expect(added, single(3))
+    added = int32(4)
+    run 'tests/addone.cm'
+    expect(added, int32(8))
+    added = int64(8)
+    run 'tests/addone.cm'
+    expect(added, int64(16))
+  end
+
+  test 'print'
+    expect(print([1 2 3]), '1 2 3')
+    expect(prn(int32([4 5])), '4 5')
+    expect(prn(int32([4; 5])), prn([4; 5]))
+    expect(class(print(zeros(8, 9))), 'char')
+  end
+
+  test 'two outputs'
+    function [y, z] = both(x)
+      y = x + 1
+      z = x + 2
+    end
+    [p, q] = both(3);
+    expect(p, 4)
+    expect(q, 5)
+  end
+
+
+% Workspace and data files. saveworkspace and loadworkspace keep a variable and a user function. .cma files cover one variable and several, small enough to stay inline and large enough to use a sidecar, for double, single, int32, and int64.
+
+  test 'save and load'
+    clear
+    kept = int32([1 2; 3 4])
+    function y = twice(x)
+      y = x + x
+    end
+    saveworkspace 'tests/_out/roundtrip.cmw'
+    clear
+    loadworkspace 'tests/_out/roundtrip.cmw'
+    expect(kept, int32([1 2; 3 4]))
+    expect(twice(2.5), 5)
+    expect(twice(single(2)), single(4))
+    expect(twice(int32(4)), int32(8))
+    expect(twice(int64(3)), int64(6))
+  end
+
+  test 'one small double'
+    a = [1 2 3; 4 5 6];
+    save('tests/_out/one-double.cma', a)
+    a = 0;
+    load('tests/_out/one-double.cma')
+    expect(a, [1 2 3; 4 5 6])
+    expect(class(a), 'double')
+  end
+
+  test 'one medium single'
+    a = repmat(single([1 2; 3 4]), 24, 32);
+    save('tests/_out/one-single.cma', a)
+    a = 0;
+    load('tests/_out/one-single.cma')
+    expect(a, repmat(single([1 2; 3 4]), 24, 32))
+    expect(class(a), 'single')
+    expect(size(a), [48 64])
+  end
+
+  test 'one large int32'
+    a = repmat(int32([1 2; 3 4]), 260, 260);
+    save('tests/_out/one-int32.cma', a)
+    a = 0;
+    load('tests/_out/one-int32.cma')
+    expect(a, repmat(int32([1 2; 3 4]), 260, 260))
+    expect(class(a), 'int32')
+    expect(size(a), [520 520])
+  end
+
+  test 'one large int64'
+    a = repmat(int64([1 2; 3 4]), 190, 180);
+    save('tests/_out/one-int64.cma', a)
+    a = 0;
+    load('tests/_out/one-int64.cma')
+    expect(a, repmat(int64([1 2; 3 4]), 190, 180))
+    expect(class(a), 'int64')
+    expect(size(a), [380 360])
+  end
+
+  test 'two matrices'
+    kept = 11;
+    function y = addone(x)
+      y = x + 1
+    end
+    a = repmat([1 2; 3 4], 24, 32);
+    b = repmat(int64([1 2; 3 4]), 24, 32);
+    save('tests/_out/two.cma', a, b)
+    a = 0;
+    b = 0;
+    load('tests/_out/two.cma', a)
+    expect(a, repmat([1 2; 3 4], 24, 32))
+    expect(b, 0)
+    expect(kept, 11)
+    expect(addone(3), 4)
+    load('tests/_out/two.cma')
+    expect(b, repmat(int64([1 2; 3 4]), 24, 32))
+    expect(class(b), 'int64')
+    expect(kept, 11)
+    expect(addone(3), 4)
+  end
+
+  test 'four large matrices'
+    d = repmat([1 2; 3 4], 200, 175);
+    s = repmat(single([1 2; 3 4]), 280, 250);
+    i = repmat(int32([1 2; 3 4]), 260, 260);
+    l = repmat(int64([1 2; 3 4]), 190, 180);
+    save('tests/_out/four.cma', d, s, i, l)
+    d = 0;
+    s = 0;
+    i = 0;
+    l = 0;
+    load('tests/_out/four.cma')
+    expect(d, repmat([1 2; 3 4], 200, 175))
+    expect(s, repmat(single([1 2; 3 4]), 280, 250))
+    expect(i, repmat(int32([1 2; 3 4]), 260, 260))
+    expect(l, repmat(int64([1 2; 3 4]), 190, 180))
+    expect(class(d), 'double')
+    expect(class(s), 'single')
+    expect(class(i), 'int32')
+    expect(class(l), 'int64')
+  end
+
+  test 'eight small and medium matrices'
+    sd = [1 2 3; 4 5 6];
+    ss = single(sd);
+    si = int32(sd);
+    sl = int64(sd);
+    md = repmat([1 2; 3 4], 24, 32);
+    ms = repmat(single([1 2; 3 4]), 24, 32);
+    mi = repmat(int32([1 2; 3 4]), 24, 32);
+    ml = repmat(int64([1 2; 3 4]), 24, 32);
+    save('tests/_out/eight.cma', sd, ss, si, sl, md, ms, mi, ml)
+    sd = 0;
+    ss = 0;
+    si = 0;
+    sl = 0;
+    md = 0;
+    ms = 0;
+    mi = 0;
+    ml = 0;
+    load('tests/_out/eight.cma')
+    expect(sd, [1 2 3; 4 5 6])
+    expect(ss, single([1 2 3; 4 5 6]))
+    expect(si, int32([1 2 3; 4 5 6]))
+    expect(sl, int64([1 2 3; 4 5 6]))
+    expect(md, repmat([1 2; 3 4], 24, 32))
+    expect(ms, repmat(single([1 2; 3 4]), 24, 32))
+    expect(mi, repmat(int32([1 2; 3 4]), 24, 32))
+    expect(ml, repmat(int64([1 2; 3 4]), 24, 32))
+    expect(class(ss), 'single')
+    expect(class(si), 'int32')
+    expect(class(sl), 'int64')
+    expect(class(ml), 'int64')
+  end
+
+  test 'one large double'
+    big = repmat(4, 200, 700);
+    save('tests/_out/big.cma', big)
+    big = 0;
+    load('tests/_out/big.cma')
+    expect(big(1, 1), 4)
+    expect(big(200, 700), 4)
+    expect(numel(big), 140000)
+    expect(class(big), 'double')
+  end
+
+end tests

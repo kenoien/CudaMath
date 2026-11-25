@@ -387,9 +387,11 @@ Value applyUnary(const Value& value, int op) {
 Value applySign(const Value& value) { return applyUnary(value, 1); }
 
 Value applyBinaryMath(const Value& left, const Value& right, int op) {
+    const Value aSrc = left.type == DType::F32 || left.type == DType::F64 ? left : promote(left, DType::F64);
+    const Value bSrc = right.type == DType::F32 || right.type == DType::F64 ? right : promote(right, DType::F64);
     Value a;
     Value b;
-    Value out = broadcastPair(left, right, a, b);
+    Value out = broadcastPair(aSrc, bSrc, a, b);
     const auto n = static_cast<std::size_t>(out.numel());
     if (out.type == DType::F32) {
         cm_binary_f32(op, static_cast<float*>(out.data()), static_cast<const float*>(a.data()), static_cast<const float*>(b.data()), n);
@@ -446,17 +448,18 @@ Value reduce(const Value& value, int op, int dim, bool all) {
 }
 
 Value elementMinMax(const Value& left, const Value& right, bool isMin) {
-    Value out = applyBinaryMath(left, right, 0);
-    const std::int64_t n = out.numel();
-    for (std::int64_t i = 0; i < n; ++i) {
+    if (left.isString || right.isString) throw std::runtime_error("min and max require numeric arrays");
+    if (left.numel() != right.numel() && left.numel() != 1 && right.numel() != 1) {
+        throw std::runtime_error("array sizes must match");
+    }
+    const Value& shape = left.numel() == 1 ? right : left;
+    const bool sameInteger = (left.type == DType::I32 || left.type == DType::I64) && left.type == right.type;
+    const DType type = sameInteger ? left.type : (left.type == DType::F32 && right.type == DType::F32 ? DType::F32 : DType::F64);
+    Value out = Value::matrix(type, shape.rows, shape.cols);
+    for (std::int64_t i = 0; i < out.numel(); ++i) {
         const double a = left.numel() == 1 ? left.get(0) : left.get(i);
         const double b = right.numel() == 1 ? right.get(0) : right.get(i);
-        out.set(i, isMin ? std::min(a, b) : std::max(a, b));
-    }
-    if ((left.type == DType::I32 || left.type == DType::I64) && left.type == right.type) {
-        Value typed = Value::matrix(left.type, out.rows, out.cols);
-        for (std::int64_t i = 0; i < n; ++i) typed.set(i, out.get(i));
-        return typed;
+        out.set(i, isMin ? (std::min)(a, b) : (std::max)(a, b));
     }
     return out;
 }
